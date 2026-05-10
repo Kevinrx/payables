@@ -175,14 +175,11 @@ export function BillEditor({ bill }: { bill: BillDetail }) {
       <section className="rounded-xl border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h2 className="text-sm font-medium tracking-tight">Line items</h2>
-          <span className="text-xs text-muted-foreground tabular">
-            Sum: {formatMoney(lineItemsTotal, bill.currency)}
-            {dollarsToCents(total) > 0 && lineItemsTotal !== dollarsToCents(total) && (
-              <span className="ml-1 text-warning">
-                (≠ total {formatMoney(dollarsToCents(total), bill.currency)})
-              </span>
-            )}
-          </span>
+          <LineItemSumIndicator
+            lineItemsTotal={lineItemsTotal}
+            subtotal={dollarsToCents(subtotal)}
+            currency={bill.currency}
+          />
         </div>
 
         <div className="p-4">
@@ -260,6 +257,32 @@ export function BillEditor({ bill }: { bill: BillDetail }) {
         </div>
       </section>
     </div>
+  );
+}
+
+function LineItemSumIndicator({
+  lineItemsTotal,
+  subtotal,
+  currency,
+}: {
+  lineItemsTotal: number;
+  subtotal: number;
+  currency: string;
+}) {
+  // Compare lines to subtotal (lines don't include tax). When the user hasn't
+  // entered a subtotal yet, just show the sum without a comparison.
+  const hasSubtotal = subtotal > 0;
+  const matches = hasSubtotal && lineItemsTotal === subtotal;
+  return (
+    <span className="text-xs text-muted-foreground tabular">
+      Lines sum: {formatMoney(lineItemsTotal, currency)}
+      {hasSubtotal && !matches && (
+        <span className="ml-1 text-warning">
+          (subtotal is {formatMoney(subtotal, currency)})
+        </span>
+      )}
+      {matches && <span className="ml-1 text-success">✓</span>}
+    </span>
   );
 }
 
