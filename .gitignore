@@ -32,9 +32,24 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
+
+# tooling state (claude code, omc, playwright)
+.claude/
+.omc/
+.playwright-mcp/
+*.log
+
+# generated screenshots / scratch
+bills-list.png
+bill-detail.png
+/public/uploads/
+
+# drizzle migration cache
+drizzle/meta/_journal.json.bak
 
 # typescript
 *.tsbuildinfo
