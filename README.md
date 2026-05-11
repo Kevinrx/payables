@@ -6,6 +6,25 @@ A small, opinionated payables product inspired by [Ramp Bill Pay](https://suppor
 
 ---
 
+## Contents
+
+- [What it does](#what-it-does)
+- [Workflows I prioritized](#workflows-i-prioritized)
+- [What I left out and why](#what-i-left-out-and-why)
+- [Setup](#setup)
+- [Tech stack and rationale](#tech-stack-and-rationale)
+- [Patterns](#patterns)
+- [Folder layout](#folder-layout)
+- [Data model](#data-model)
+- [Bill status lifecycle](#bill-status-lifecycle)
+- [End-to-end: how an upload becomes a bill](#end-to-end-how-an-upload-becomes-a-bill)
+- [The model contract](#the-model-contract)
+- [Production hardening I deliberately skipped](#production-hardening-i-deliberately-skipped)
+- [What I'd build next](#what-id-build-next)
+- [Honest things I'd change with another day](#honest-things-id-change-with-another-day)
+
+---
+
 ## What it does
 
 Upload a PDF or image invoice → Claude vision extracts the vendor, dates, amounts, and line items into a structured draft → you review and edit anything the model got wrong → approve → schedule a payment → mark paid. Every state transition lands in an audit log; the bills list shows aging, totals, and lets you filter by status or search by vendor.
@@ -78,19 +97,109 @@ Open the app and either:
 | `samples` | Generate sample invoice PDFs into `./samples/` |
 | `test:extract` | One-shot extraction test against any local file: `npm run test:extract -- samples/01-acme-cloud.pdf` |
 
-## Architecture decisions
+---
 
-- **Single Next.js 16 app, App Router, server components by default.** No API/frontend split. Server actions for mutations, one real route handler (`POST /api/bills/upload`) only because it needs multipart and is awkward inside RSC.
-- **Drizzle ORM** over Prisma — leaner generated types, no separate `prisma generate` step, plays well with serverless Postgres.
-- **Money as integer cents.** Never floats. The model returns dollars (it's better at human-readable units) and we round to cents at the boundary.
-- **`bill_events` audit table** instead of a state machine. Every transition writes one row; the UI reads them in order to render the timeline. Simpler, debuggable, queryable, no library.
-- **AI extraction is the only "magic."** Everything else is intentionally boring CRUD. This proportion is the design.
-- **`extracted_json` jsonb column** keeps the raw model response for debugging, audit, and the "this is what the AI saw" UX you'd want in v2.
-- **Strict tool-use schema for extraction** (Anthropic SDK `tool_choice: { type: "tool", name: "save_invoice" }`). The model can't return free text; it must call our tool with our schema. Output is then re-validated with Zod before any DB write.
-- **Vendor dedup on extraction** — case-insensitive name match against existing vendors in the same org; create-on-miss. Prevents the "Acme Inc." vs "Acme, Inc" duplication that real AP products fight.
-- **Storage is pluggable.** Vercel Blob in production, local filesystem in dev when no Blob token is set. Same `storeFile()` signature; the caller doesn't know.
-- **No auth in the MVP.** Single demo org. The `organizations` FK is everywhere so adding auth becomes a session-derived `WHERE org_id = ...` filter — no migration.
-- **`db:push` would be simpler than `db:generate` + `db:migrate`** for greenfield, but Drizzle's push command requires a TTY (broken in CI/non-interactive shells), so I went with explicit migrations.
+## Tech stack and rationale
+
+Each row is **chose / considered / why** so the trade-offs are explicit.
+
+| Concern | Chose | Considered | Why |
+|---|---|---|---|
+| **Framework** | Next.js 16 (App Router, Turbopack) | Remix, Astro, plain Vite + Hono | One repo for FE + BE, server components remove API plumbing for read paths, server actions remove API plumbing for mutations, Vercel-native deploy. Net: less boilerplate per feature than any alternative. |
+| **Language** | TypeScript (strict) | JavaScript | Free correctness; the model output is `unknown` until validated, and TS catches schema drifts the moment they happen. |
+| **Database** | Postgres (Neon, serverless) | SQLite, MySQL, MongoDB | Postgres because: enums, jsonb, conditional aggregates, composite indexes, mature serverless story. Neon because: free tier, branching, plays well with Vercel cold starts. |
+| **ORM** | Drizzle | Prisma, Kysely, raw SQL | Drizzle compiles to plain SQL with great types, no separate codegen step (Prisma's `prisma generate` is annoying in serverless), and lets me drop into raw SQL via `db.execute(sql\`...\`)` for the conditional aggregates on the dashboard. |
+| **UI library** | Hand-rolled with Tailwind 4 | shadcn/ui, Radix, MUI | Wanted full control over a coherent visual language for a product evaluated on UI taste. shadcn would have been ~30 min faster initially but adds a vocabulary I'd have to override. The whole component set is ~10 small files. |
+| **AI provider** | Anthropic Claude Sonnet 4.6 | OpenAI GPT-4o, GPT-4o-mini, Gemini | Strongest at structured output via tool-use (forces the model to call our function with our schema, no parsing fragility). Vision quality is excellent on PDFs. Sonnet is the right cost/quality knee for invoices. |
+| **File storage** | Vercel Blob | S3, Supabase Storage, base64 in Postgres | Vercel-native, one env var to wire up, public store with timestamp + random suffix URLs. Falls back to local fs in dev so you can run end-to-end without provisioning Blob. |
+| **Validation** | Zod | Yup, io-ts, ArkType | Standard, ergonomic, lets the same schema validate both API input and model output. |
+| **Toasts** | sonner | react-hot-toast, react-toastify | Better defaults, less ceremony, top-center positioning out of the box. |
+| **Icons** | lucide-react | Heroicons, Phosphor | 1500+ icons, consistent stroke weight, tree-shakeable. |
+| **Migrations** | `drizzle-kit generate` + tsx migrator script | `drizzle-kit push` | Push needs a TTY (broken in non-interactive shells / CI), so explicit migration files committed to the repo it is. Bonus: I can read the SQL before applying. |
+| **Forms** | React local state + server actions | react-hook-form, Formik, TanStack Form | The bill editor has maybe 15 fields. A form library would add 8KB and a layer of indirection for no win. |
+| **Tests** | None (gasp) | Vitest, Playwright | Honest cost/value call for 6h of build time. The right tests for this codebase are server-action integration tests against a throwaway Postgres — that's 2-3h of infra by itself. Documented as a gap. |
+
+## Patterns
+
+The codebase is small enough to read end-to-end, but a few intentional patterns make it consistent:
+
+**Server components by default, client components only when interactive.** Pages are server components (`/bills/page.tsx`, `/bills/[id]/page.tsx`, `/vendors/page.tsx`) — they fetch via Drizzle and pass data down. Client components carry the `"use client"` directive only when they need state (`bills-table.tsx` for filter/sort, `bill-editor.tsx` for the form, `bill-actions.tsx` for the action buttons). This keeps shipped JS small and lets RSC streaming work.
+
+**Server actions for mutations, one route handler for the upload.** All mutations live in `src/app/bills/actions.ts` as `"use server"` functions. They're called directly from client components via `startTransition`. The single REST-ish endpoint is `POST /api/bills/upload` because it accepts multipart, which is awkward in RSC. After upload, control returns to RSC + actions for everything else.
+
+**Append-only event log instead of a state machine.** Every state transition writes a row to `bill_events` (`created` / `extracted` / `edited` / `approved` / `scheduled` / `paid` / `voided`). The activity timeline reads them in order. There's no XState or library — just `await tx.insert(billEvents).values(...)` inside the same DB transaction as the mutation. Adding a new event type is a 1-line enum change.
+
+**Money as integer cents, money math in the DB.** Cents are stored in `integer` columns. The Anthropic SDK returns dollars (it's better at human-readable units), and we round to cents at the boundary in `runExtraction`. Display uses `Intl.NumberFormat` with the bill's currency. Aggregate sums for the dashboard cards are computed in SQL with `SUM(...) FILTER (WHERE ...)` — one query, no app-side reduce.
+
+**Strict tool-use for AI output.** The Anthropic SDK call uses `tool_choice: { type: "tool", name: "save_invoice" }`, which forces the model to call our function with our schema. No JSON parsing of free-form text. The result is then re-validated with Zod before any DB write — so even if the model's tool args drift, we catch it at the boundary and surface a clean error.
+
+**Vendor dedup at extraction time.** When the model returns `vendor_name`, we look for an existing vendor in the same org with a case-insensitive name match (`lower(name) = lower($1)`); if none, we insert a new one. The `vendors` table has a unique index on `(org_id, lower(name))` to enforce it. This prevents the "Acme Inc." vs "Acme, Inc" duplication every real AP product fights.
+
+**Status as a Postgres enum, transitions checked server-side.** `bill_status` is a Postgres enum (`draft | needs_review | approved | scheduled | paid | void`). Every server action checks the current status before mutating — `approveBill` rejects anything not in `draft` or `needs_review`, `schedulePayment` rejects anything not `approved`, etc. The UI hides the wrong buttons for the current state, but the server is the source of truth.
+
+**Storage abstraction for env parity.** `storeFile()` in `src/lib/storage.ts` takes (buffer, filename, mime) and returns a URL. Production uses Vercel Blob; local dev uses `public/uploads/` so you don't need to provision Blob to demo. On Vercel without `BLOB_READ_WRITE_TOKEN`, it throws a clear error instead of silently failing on the read-only filesystem.
+
+**`extracted_json` jsonb column as audit trail of the model.** The full Claude response is stored alongside the parsed fields. Useful for debugging extraction failures, building a "this is what the AI saw" UX in v2, or training/eval on real invoices later.
+
+**Loading skeletons via `loading.tsx`.** Each route segment that fetches data has a sibling `loading.tsx` exporting a skeleton matching its layout. Next.js renders it during the server fetch, so transitions feel instant instead of blank.
+
+**Optimistic UI is on the edit path, not the action path.** `BillEditor` updates local state immediately as you type. The Approve/Schedule/MarkPaid buttons disable + spin and wait for the server, because their visual change (status badge, available actions) requires a server round-trip anyway. Faking optimism on a status transition would just confuse users when it fails.
+
+## Folder layout
+
+```
+src/
+├── app/
+│   ├── layout.tsx              ← root layout: header + Toaster
+│   ├── page.tsx                ← redirect to /bills
+│   ├── globals.css             ← Tailwind 4 + design tokens (colors as CSS vars)
+│   ├── api/
+│   │   └── bills/upload/route.ts ← multipart POST → Blob → insert draft bill
+│   ├── bills/
+│   │   ├── page.tsx            ← list (server component): summary cards + filter table
+│   │   ├── loading.tsx         ← skeleton for /bills
+│   │   ├── actions.ts          ← all server actions: runExtraction, updateBill,
+│   │   │                         approveBill, schedulePayment, markBillPaid
+│   │   ├── new/page.tsx        ← upload UI
+│   │   └── [id]/
+│   │       ├── page.tsx        ← detail (server): editor + payments + timeline
+│   │       └── loading.tsx     ← skeleton for /bills/[id]
+│   └── vendors/
+│       ├── page.tsx            ← per-vendor outstanding/lifetime totals
+│       └── loading.tsx
+├── components/                 ← all client components, lowercase-with-dashes
+│   ├── app-header.tsx          ← sticky nav with demo-workspace pill
+│   ├── bills-table.tsx         ← client: filter/search/sort
+│   ├── summary-cards.tsx       ← server: 4 dashboard cards
+│   ├── status-badge.tsx        ← color-coded status pill
+│   ├── bill-actions.tsx        ← Approve / Schedule / MarkPaid buttons
+│   ├── bill-editor.tsx         ← inline editable form for draft/needs_review bills
+│   ├── bill-event-timeline.tsx ← vertical timeline for activity
+│   ├── extraction-pending.tsx  ← skeleton + Claude trigger on first load
+│   ├── file-preview.tsx        ← <embed>/<img> for PDF or image invoices
+│   ├── file-uploader.tsx       ← drag-and-drop with mime/size validation
+│   └── schedule-payment-dialog.tsx ← modal: date, method, amount
+├── db/
+│   ├── schema.ts               ← Drizzle schema: 6 tables, enums, indexes
+│   ├── index.ts                ← single Drizzle client (HMR-safe)
+│   └── queries.ts              ← shared read queries: listBills, getBillById,
+│                                  getBillSummary, listVendors
+└── lib/
+    ├── extract.ts              ← Anthropic SDK call + Zod validation
+    ├── storage.ts              ← Vercel Blob OR local fs fallback
+    └── utils.ts                ← cn(), formatMoney, daysUntilDue, agingBucket
+
+scripts/
+├── load-env.ts                 ← loads .env.local for standalone scripts
+├── migrate.ts                  ← drizzle-orm migrator (avoids drizzle-kit's TTY)
+├── seed.ts                     ← 9 demo bills across all statuses
+├── generate-samples.ts         ← writes 3 PDF invoices into ./samples/
+├── test-extract.ts             ← npm run test:extract -- <file>
+└── peek.ts                     ← inspect a bill row by id
+
+drizzle/                        ← committed migration SQL + meta
+samples/                        ← PDFs for the upload demo
+```
 
 ## Data model
 
@@ -104,6 +213,15 @@ organizations             ← single demo org
 ```
 
 Six tables. Six. Money is integers. Dates are dates. Statuses are Postgres enums. Indexes on `(org_id, status)` and `due_date` for the queries that actually run on the bills page.
+
+### Why each table
+
+- **`organizations`** — pure FK target. There's a single seeded org. Every other table has `org_id` so adding multi-tenancy is a `WHERE org_id = ...` filter, not a schema migration.
+- **`vendors`** — separate from bills so dedup works (one Acme, many bills). Unique index on `(org_id, lower(name))` enforces case-insensitive uniqueness.
+- **`bills`** — the spine. Stores extracted fields (`invoice_number`, dates, money), denormalized status, and `extracted_json` (the raw model response) so we never lose information during the parse.
+- **`bill_line_items`** — `qty × unit_price = amount_cents`, all integers. Soft-deleted via re-insert on edit (the editor wipes + re-inserts inside one transaction, simpler than diffing).
+- **`payments`** — 1:N with bills today, but the schema supports split/partial payments (just create more rows). `paid_at` is nullable; non-null means it's actually paid.
+- **`bill_events`** — append-only. One row per state transition with a `payload` jsonb for context (approver email, payment id, model confidence). Powers the timeline UI and the audit story without a separate event-sourcing library.
 
 ## Bill status lifecycle
 
@@ -120,6 +238,101 @@ upload ─► draft ─► needs_review ─► approved ─► scheduled ─► 
 ```
 
 A successful upload+extract puts the bill in `needs_review`. If extraction fails, the bill stays as `draft` with empty fields and the UI prompts manual entry. Edits while in `draft` or `needs_review` keep the bill in `needs_review`. The forward path (`approve → schedule → pay`) only allows transitions from the immediately preceding state — every action checks status before mutating.
+
+## End-to-end: how an upload becomes a bill
+
+The upload-to-extracted-bill flow touches almost every layer. Worth walking through:
+
+```
+1. Browser
+   └─► User drops PDF into FileUploader
+   └─► Validates mime/size client-side
+   └─► POST /api/bills/upload (multipart, 10MB cap)
+       │
+2. Route handler (src/app/api/bills/upload/route.ts)
+   └─► getDemoOrgId()                  ← single seeded org
+   └─► storeFile(buffer, name, mime)   ← Vercel Blob or local fs
+   └─► INSERT bills (status='draft', source='upload', file_url, file_mime)
+   └─► INSERT bill_events (event='created')
+   └─► return { billId }
+       │
+3. Browser
+   └─► router.push(`/bills/${billId}`)
+       │
+4. Page render (src/app/bills/[id]/page.tsx, server component)
+   └─► getBillById(id, orgId)
+   └─► Detects: status=draft + has file + no extracted_json
+   └─► Renders <ExtractionPending /> instead of normal detail view
+       │
+5. ExtractionPending (client, src/components/extraction-pending.tsx)
+   └─► useEffect: calls runExtraction(billId) server action
+   └─► Shows skeleton + rotating hint text
+       │
+6. Server action runExtraction (src/app/bills/actions.ts)
+   └─► Re-fetches bill (auth/state check)
+   └─► Loads file bytes (fetch from Blob URL or readFile from fs)
+   └─► extractInvoice(buffer, mime) ← src/lib/extract.ts
+       └─► Anthropic SDK: claude-sonnet-4-6, vision input,
+           tool_choice forces save_invoice tool call
+       └─► Zod-validates the tool args
+       └─► Returns ExtractedInvoice (typed)
+   └─► Vendor dedup: lower(name) match in same org → reuse or create
+   └─► One transaction:
+       ├─► UPDATE bills (vendor_id, dates, amounts, extracted_json, status='needs_review')
+       ├─► DELETE then INSERT bill_line_items
+       └─► INSERT bill_events (event='extracted')
+   └─► revalidatePath(`/bills/${billId}`)
+       │
+7. ExtractionPending
+   └─► router.refresh() ← triggers RSC re-render with fresh data
+       │
+8. Page re-render
+   └─► getBillById now returns extracted_json + line items
+   └─► needsExtraction = false
+   └─► Renders <BillBody /> with editor, payments, timeline
+```
+
+Total wall time on a 2-page PDF: ~6 seconds (upload ~500ms, extract ~5s, RSC refresh ~300ms).
+
+## The model contract
+
+We do not let the model return free text. The Anthropic SDK call defines a tool with a JSONSchema and forces the model to call it:
+
+```ts
+tool_choice: { type: "tool", name: "save_invoice" }
+```
+
+The full schema (in `src/lib/extract.ts`):
+
+```ts
+{
+  vendor_name: string | null,    // The seller, NOT the buyer
+  invoice_number: string | null,
+  invoice_date: string | null,   // YYYY-MM-DD
+  due_date: string | null,
+  currency: string,              // ISO 4217, defaults to USD
+  subtotal: number | null,       // dollars (model is better at major units)
+  tax: number | null,
+  total: number | null,
+  line_items: Array<{
+    description: string,
+    quantity: number | null,
+    unit_price: number | null,
+    amount: number,              // required
+  }>,
+  notes: string | null,          // memo / PO number / disputed flag
+}
+```
+
+The system prompt explicitly tells the model:
+- The seller (vendor) is who issued the invoice — not the buyer
+- Money is in major units (1234.56, not 123456)
+- Dates are ISO 8601
+- Skip header/summary rows in line items
+- Use null for missing fields, do not invent
+- If the document is clearly not an invoice, return nulls
+
+After the model returns, we run the args through `ExtractedInvoiceSchema.safeParse()` (Zod). If validation fails, we log the error and the bill stays as draft with the failure recorded in `bill_events`. The UI shows a "Fill in manually" banner.
 
 ## Production hardening I deliberately skipped
 
@@ -151,20 +364,14 @@ In rough order of impact:
 
 ## Honest things I'd change with another day
 
-- The line-items editor doesn't enforce that line totals == bill total. Today it shows a small warning if they differ. I'd add a one-click "set total from line items" or a "subtotal/tax/total" auto-recalculation.
+- The line-items editor doesn't enforce that line totals == subtotal. Today it shows a small ✓ when they match and a warning when they don't. I'd add a one-click "set subtotal from line items."
 - Payments are 1:1 with bills today (one bill, one or more payments). A real product allows split payments and partial payments. Easy schema change, more UI.
 - I serve uploaded files inline via `<object>` for PDFs. On some browsers this triggers a download instead. A real product would render PDFs to images server-side or use PDF.js.
-- No keyboard shortcuts (j/k navigation between bills, `e` to edit, `a` to approve). Quick add.
+- Number inputs respect the OS locale, so users on comma-decimal systems see "1325,48" instead of "1325.48". A real product would use locale-aware text inputs with explicit parsing.
+- No keyboard shortcuts (`j`/`k` between bills, `e` to edit, `a` to approve). Quick add.
 - The "Demo workspace" pill could click through to a (mocked) workspace switcher. It's a single useful affordance away from feeling multi-tenant-ready.
+- The vendor field in the editor is a plain text input with server-side dedup. A combobox suggesting existing vendors as you type would be more familiar.
 
-## Stack
-
-- **Next.js 16** (App Router, Turbopack), **React 19**, **TypeScript**
-- **Tailwind 4** + a small CSS-vars design system (no UI kit; everything is hand-rolled but boringly consistent)
-- **Drizzle ORM** + **postgres-js** against **Neon Postgres**
-- **Anthropic Claude Sonnet 4.6** for vision-based invoice extraction
-- **Vercel Blob** (or local fs fallback) for invoice file storage
-- **Zod** for runtime validation at every boundary
-- **sonner** for toasts, **lucide-react** for icons
+---
 
 No tests, no Storybook, no monorepo, no `shadcn/ui`. Just the shape of the thing.
