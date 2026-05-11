@@ -4,8 +4,9 @@ import { resolve } from "node:path";
 
 /**
  * Stores an uploaded file. Uses Vercel Blob when BLOB_READ_WRITE_TOKEN is set,
- * falls back to public/uploads/ for local dev (so you can demo the app without
- * provisioning Blob storage).
+ * falls back to public/uploads/ for local dev. Refuses to attempt the local
+ * fallback on Vercel — its /var/task is read-only, so silently trying mkdir
+ * just produces a misleading ENOENT.
  */
 export async function storeFile(
   buffer: Buffer,
@@ -20,6 +21,14 @@ export async function storeFile(
       addRandomSuffix: false,
     });
     return { url };
+  }
+
+  // Vercel sets VERCEL=1 in every runtime. We can't write to disk there.
+  if (process.env.VERCEL) {
+    throw new Error(
+      "File storage is not configured. Connect a Vercel Blob store to your project " +
+      "(Storage tab → Create → Blob → Connect) so BLOB_READ_WRITE_TOKEN is set, then redeploy."
+    );
   }
 
   const uploadsDir = resolve(process.cwd(), "public", "uploads");
