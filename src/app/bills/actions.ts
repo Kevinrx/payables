@@ -9,6 +9,27 @@ import { extractInvoice } from "@/lib/extract";
 
 const { bills, payments, billEvents, vendors, billLineItems } = schema;
 
+// ─── Create a blank manual bill ─────────────────────────────────────
+
+export async function createManualBill(): Promise<Result<{ billId: string }>> {
+  try {
+    const orgId = await getDemoOrgId();
+    const [bill] = await db
+      .insert(bills)
+      .values({ orgId, status: "draft", source: "manual" })
+      .returning();
+    await db.insert(billEvents).values({
+      billId: bill.id,
+      event: "created",
+      payload: { source: "manual" },
+    });
+    revalidatePath("/bills");
+    return { ok: true, data: { billId: bill.id } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
 // ─── Run extraction (Claude vision) ─────────────────────────────────
 
 function dollarsToCents(n: number | null | undefined): number | null {

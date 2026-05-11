@@ -70,7 +70,8 @@ function BillBody({ bill }: { bill: BillDetail }) {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight">
-              {bill.vendor?.name ?? "Unmatched vendor"}
+              {bill.vendor?.name ??
+                (bill.source === "manual" ? "Untitled bill" : "Unmatched vendor")}
             </h1>
             <StatusBadge status={bill.status} />
           </div>

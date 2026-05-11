@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { FileUploader } from "@/components/file-uploader";
+import { CreateManualBillLink } from "@/components/create-manual-bill-link";
 
 export default function NewBillPage() {
   return (
@@ -30,6 +31,10 @@ export default function NewBillPage() {
           Extraction runs as soon as the upload finishes — it usually takes 5–10 seconds.
           You can edit anything Claude got wrong on the next screen.
         </p>
+      </div>
+
+      <div className="mt-6 border-t border-border pt-6">
+        <CreateManualBillLink />
       </div>
     </div>
   );
