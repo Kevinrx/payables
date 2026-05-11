@@ -9,6 +9,113 @@ import { extractInvoice } from "@/lib/extract";
 
 const { bills, payments, billEvents, vendors, billLineItems } = schema;
 
+// ─── Repeat a bill (recurring) ──────────────────────────────────────
+
+const repeatSchema = z.object({
+  frequency: z.enum(["monthly", "quarterly", "yearly"]),
+  count: z.number().int().min(1).max(24),
+});
+
+function addInterval(
+  iso: string,
+  frequency: "monthly" | "quarterly" | "yearly",
+  n: number
+): string {
+  const d = new Date(iso);
+  if (frequency === "monthly") d.setMonth(d.getMonth() + n);
+  else if (frequency === "quarterly") d.setMonth(d.getMonth() + n * 3);
+  else d.setFullYear(d.getFullYear() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+export async function repeatBill(
+  billId: string,
+  input: z.infer<typeof repeatSchema>
+): Promise<Result<{ created: number }>> {
+  try {
+    const parsed = repeatSchema.safeParse(input);
+    if (!parsed.success) return { ok: false, error: "Invalid input" };
+    const { frequency, count } = parsed.data;
+
+    const orgId = await getDemoOrgId();
+    const original = await findBillForOrg(billId, orgId);
+    if (!original) return { ok: false, error: "Bill not found" };
+    if (!original.dueDate || !original.invoiceDate) {
+      return {
+        ok: false,
+        error: "Bill must have an invoice date and a due date before it can be repeated",
+      };
+    }
+
+    // Children are clones in 'draft' status with shifted dates and no payments/file.
+    // The template (this bill) keeps its parentBillId=null.
+    // Children point to original via parentBillId.
+    const lineItems = await db
+      .select()
+      .from(billLineItems)
+      .where(eq(billLineItems.billId, billId));
+
+    let created = 0;
+    await db.transaction(async (tx) => {
+      for (let i = 1; i <= count; i++) {
+        const newInvoiceDate = addInterval(original.invoiceDate!, frequency, i);
+        const newDueDate = addInterval(original.dueDate!, frequency, i);
+        const [child] = await tx
+          .insert(bills)
+          .values({
+            orgId,
+            vendorId: original.vendorId,
+            parentBillId: original.parentBillId ?? original.id,
+            invoiceNumber: original.invoiceNumber
+              ? `${original.invoiceNumber}-R${i}`
+              : null,
+            invoiceDate: newInvoiceDate,
+            dueDate: newDueDate,
+            subtotalCents: original.subtotalCents,
+            taxCents: original.taxCents,
+            totalCents: original.totalCents,
+            currency: original.currency,
+            status: "draft",
+            source: "manual",
+            notes: original.notes,
+          })
+          .returning();
+
+        if (lineItems.length > 0) {
+          await tx.insert(billLineItems).values(
+            lineItems.map((li, idx) => ({
+              billId: child.id,
+              description: li.description,
+              quantity: li.quantity,
+              unitPriceCents: li.unitPriceCents,
+              amountCents: li.amountCents,
+              sortOrder: idx,
+            }))
+          );
+        }
+
+        await tx.insert(billEvents).values({
+          billId: child.id,
+          event: "created",
+          payload: {
+            source: "recurring",
+            parentBillId: original.parentBillId ?? original.id,
+            sequence: i,
+            frequency,
+          },
+        });
+        created++;
+      }
+    });
+
+    revalidatePath(`/bills/${billId}`);
+    revalidatePath("/bills");
+    return { ok: true, data: { created } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
 // ─── Create a blank manual bill ─────────────────────────────────────
 
 export async function createManualBill(): Promise<Result<{ billId: string }>> {

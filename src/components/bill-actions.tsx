@@ -2,20 +2,25 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Wallet, Send, Loader2 } from "lucide-react";
+import { CheckCircle2, Wallet, Send, Loader2, Repeat } from "lucide-react";
 import { toast } from "sonner";
 import type { BillDetail } from "@/db/queries";
 import { approveBill, markBillPaid } from "@/app/bills/actions";
 import { SchedulePaymentDialog } from "./schedule-payment-dialog";
+import { RepeatBillDialog } from "./repeat-bill-dialog";
 
 export function BillActions({ bill }: { bill: BillDetail }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [repeatOpen, setRepeatOpen] = useState(false);
 
   const canApprove = bill.status === "needs_review" || bill.status === "draft";
   const canSchedule = bill.status === "approved";
   const canMarkPaid = bill.status === "scheduled";
+  // Repeat is allowed any time the bill has the data needed; show in the
+  // header so it's available even on already-paid bills (typical for AP).
+  const canRepeat = bill.status !== "void";
 
   function handleApprove() {
     startTransition(async () => {
@@ -90,11 +95,26 @@ export function BillActions({ bill }: { bill: BillDetail }) {
             Paid {bill.payments[0]?.paidAt ? new Date(bill.payments[0].paidAt).toLocaleDateString() : ""}
           </span>
         )}
+        {canRepeat && (
+          <button
+            type="button"
+            onClick={() => setRepeatOpen(true)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-background px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <Repeat className="h-4 w-4" />
+            Repeat
+          </button>
+        )}
       </div>
 
       <SchedulePaymentDialog
         open={scheduleOpen}
         onOpenChange={setScheduleOpen}
+        bill={bill}
+      />
+      <RepeatBillDialog
+        open={repeatOpen}
+        onOpenChange={setRepeatOpen}
         bill={bill}
       />
     </>

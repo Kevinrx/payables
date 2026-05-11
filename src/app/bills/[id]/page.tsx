@@ -79,6 +79,17 @@ function BillBody({ bill }: { bill: BillDetail }) {
             <span>Invoice {bill.invoiceNumber ?? "—"}</span>
             <span className="h-1 w-1 rounded-full bg-border-strong" />
             <span>Due {formatDate(bill.dueDate)}</span>
+            {bill.parentBillId && (
+              <>
+                <span className="h-1 w-1 rounded-full bg-border-strong" />
+                <Link
+                  href={`/bills/${bill.parentBillId}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium hover:bg-border"
+                >
+                  ↻ Recurring (view source)
+                </Link>
+              </>
+            )}
             {bill.notes && (
               <>
                 <span className="h-1 w-1 rounded-full bg-border-strong" />

@@ -8,6 +8,13 @@
       "when": 1778448768778,
       "tag": "0000_lovely_longshot",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778464068809,
+      "tag": "0001_mature_mandroid",
+      "breakpoints": true
     }
   ]
 }

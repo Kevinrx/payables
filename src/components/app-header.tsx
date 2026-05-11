@@ -20,6 +20,12 @@ export function AppHeader() {
               Bills
             </Link>
             <Link
+              href="/aging"
+              className="rounded-md px-3 py-1.5 transition-colors hover:bg-muted hover:text-foreground"
+            >
+              Aging
+            </Link>
+            <Link
               href="/vendors"
               className="rounded-md px-3 py-1.5 transition-colors hover:bg-muted hover:text-foreground"
             >

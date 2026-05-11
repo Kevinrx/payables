@@ -36,6 +36,7 @@ export async function listBills(orgId: string) {
       updatedAt: bills.updatedAt,
       vendorId: bills.vendorId,
       vendorName: vendors.name,
+      parentBillId: bills.parentBillId,
     })
     .from(bills)
     .leftJoin(vendors, eq(vendors.id, bills.vendorId))

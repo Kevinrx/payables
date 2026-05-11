@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpDown, ChevronRight, Search, Inbox } from "lucide-react";
+import { ArrowUpDown, ChevronRight, Search, Inbox, Repeat } from "lucide-react";
 import type { BillStatus } from "@/db/schema";
 import { StatusBadge } from "./status-badge";
 import { cn, daysUntilDue, formatDate, formatMoney } from "@/lib/utils";
@@ -18,6 +18,7 @@ type Row = {
   notes: string | null;
   vendorId: string | null;
   vendorName: string | null;
+  parentBillId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -196,8 +197,16 @@ function BillRow({ row }: { row: Row }) {
   return (
     <tr className="group border-b border-border last:border-b-0 hover:bg-muted/30">
       <td className="px-4 py-3">
-        <Link href={`/bills/${row.id}`} className="block font-medium tracking-tight">
-          {row.vendorName ?? <span className="text-muted-foreground">No vendor</span>}
+        <Link href={`/bills/${row.id}`} className="flex items-center gap-1.5 font-medium tracking-tight">
+          <span>{row.vendorName ?? <span className="text-muted-foreground">No vendor</span>}</span>
+          {row.parentBillId && (
+            <span
+              className="inline-flex items-center text-muted-foreground"
+              title="Recurring bill"
+            >
+              <Repeat className="h-3 w-3" />
+            </span>
+          )}
         </Link>
         {row.notes && (
           <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{row.notes}</div>
