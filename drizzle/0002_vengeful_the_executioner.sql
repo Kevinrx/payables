@@ -1,0 +1,1 @@
+ALTER TABLE "bill_line_items" ADD COLUMN "splits" jsonb;

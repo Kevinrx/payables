@@ -9,6 +9,93 @@ import { extractInvoice } from "@/lib/extract";
 
 const { bills, payments, billEvents, vendors, billLineItems } = schema;
 
+// ─── Bulk import via CSV ────────────────────────────────────────────
+
+const csvRowSchema = z.object({
+  vendor_name: z.string().min(1),
+  invoice_number: z.string().nullable(),
+  invoice_date: z.string().nullable(), // YYYY-MM-DD
+  due_date: z.string().nullable(),
+  total: z.number(), // dollars
+  currency: z.string().default("USD"),
+  notes: z.string().nullable(),
+});
+
+const importSchema = z.object({
+  rows: z.array(csvRowSchema).min(1).max(500),
+});
+
+export async function importBillsFromCsv(
+  input: z.infer<typeof importSchema>
+): Promise<Result<{ created: number; vendorsCreated: number }>> {
+  try {
+    const parsed = importSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
+      };
+    }
+    const orgId = await getDemoOrgId();
+
+    // Build a vendor cache so we don't N+1 the lookups.
+    const existingVendors = await db
+      .select()
+      .from(vendors)
+      .where(eq(vendors.orgId, orgId));
+    const vendorByLower = new Map(
+      existingVendors.map((v) => [v.name.toLowerCase(), v.id])
+    );
+
+    let created = 0;
+    let vendorsCreated = 0;
+    await db.transaction(async (tx) => {
+      for (const row of parsed.data.rows) {
+        let vendorId = vendorByLower.get(row.vendor_name.toLowerCase()) ?? null;
+        if (!vendorId) {
+          const [v] = await tx
+            .insert(vendors)
+            .values({ orgId, name: row.vendor_name })
+            .returning();
+          vendorId = v.id;
+          vendorByLower.set(row.vendor_name.toLowerCase(), vendorId);
+          vendorsCreated++;
+        }
+
+        const totalCents = Math.round(row.total * 100);
+        const [bill] = await tx
+          .insert(bills)
+          .values({
+            orgId,
+            vendorId,
+            invoiceNumber: row.invoice_number,
+            invoiceDate: row.invoice_date,
+            dueDate: row.due_date,
+            totalCents,
+            currency: row.currency || "USD",
+            status: "needs_review",
+            source: "manual",
+            notes: row.notes,
+          })
+          .returning();
+
+        await tx.insert(billEvents).values({
+          billId: bill.id,
+          event: "created",
+          payload: { source: "csv_import" },
+        });
+
+        created++;
+      }
+    });
+
+    revalidatePath("/bills");
+    return { ok: true, data: { created, vendorsCreated } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
 // ─── Repeat a bill (recurring) ──────────────────────────────────────
 
 const repeatSchema = z.object({
@@ -429,6 +516,19 @@ const updateBillSchema = z.object({
       quantity: z.number().int().nullable(),
       unitPriceCents: z.number().int().nullable(),
       amountCents: z.number().int(),
+      splits: z
+        .array(
+          z.object({
+            category: z.string().min(1),
+            percentageBps: z.number().int().min(1).max(10000),
+          })
+        )
+        .nullable()
+        .optional()
+        .refine(
+          (s) => !s || s.length === 0 || s.reduce((acc, x) => acc + x.percentageBps, 0) === 10000,
+          "Splits must sum to 100%"
+        ),
     })
   ),
 });
@@ -498,6 +598,7 @@ export async function updateBill(
             unitPriceCents: li.unitPriceCents,
             amountCents: li.amountCents,
             sortOrder: i,
+            splits: li.splits && li.splits.length > 0 ? li.splits : null,
           }))
         );
       }

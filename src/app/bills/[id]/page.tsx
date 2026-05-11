@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft, FileText, Tag } from "lucide-react";
 import { getBillById, getDemoOrgId, type BillDetail } from "@/db/queries";
 import { StatusBadge } from "@/components/status-badge";
 import { BillActions } from "@/components/bill-actions";
@@ -8,6 +8,7 @@ import { BillEventTimeline } from "@/components/bill-event-timeline";
 import { FilePreview } from "@/components/file-preview";
 import { ExtractionPending } from "@/components/extraction-pending";
 import { BillEditor } from "@/components/bill-editor";
+import { allocateCents, formatSplitSummary, type LineItemSplit } from "@/lib/categories";
 import { formatDate, formatMoney } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -148,21 +149,38 @@ function BillBody({ bill }: { bill: BillDetail }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {bill.lineItems.map((li) => (
-                      <tr key={li.id} className="border-b border-border last:border-b-0">
-                        <td className="py-2.5">{li.description}</td>
-                        <td className="py-2.5 text-right tabular">{li.quantity ?? "—"}</td>
-                        <td className="py-2.5 text-right tabular">
-                          {formatMoney(li.unitPriceCents, bill.currency)}
-                        </td>
-                        <td className="py-2.5 text-right tabular font-medium">
-                          {formatMoney(li.amountCents, bill.currency)}
-                        </td>
-                      </tr>
-                    ))}
+                    {bill.lineItems.map((li) => {
+                      const splits = (li.splits as LineItemSplit[] | null) ?? null;
+                      return (
+                        <tr key={li.id} className="border-b border-border last:border-b-0 align-top">
+                          <td className="py-2.5">
+                            <div>{li.description}</div>
+                            {splits && splits.length > 0 && (
+                              <div className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                <Tag className="h-3 w-3" />
+                                {formatSplitSummary(splits)}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-2.5 text-right tabular">{li.quantity ?? "—"}</td>
+                          <td className="py-2.5 text-right tabular">
+                            {formatMoney(li.unitPriceCents, bill.currency)}
+                          </td>
+                          <td className="py-2.5 text-right tabular font-medium">
+                            {formatMoney(li.amountCents, bill.currency)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
+            </Section>
+          )}
+
+          {!isEditable && hasAnySplits(bill) && (
+            <Section title="Category breakdown">
+              <CategoryBreakdown bill={bill} />
             </Section>
           )}
 
@@ -241,6 +259,67 @@ function Section({
       </div>
       <div className={tight ? "p-3" : "p-4"}>{children}</div>
     </section>
+  );
+}
+
+function hasAnySplits(bill: BillDetail): boolean {
+  return bill.lineItems.some((li) => {
+    const s = li.splits as LineItemSplit[] | null;
+    return s && s.length > 0;
+  });
+}
+
+function CategoryBreakdown({ bill }: { bill: BillDetail }) {
+  // Sum cents per category across all lines.
+  const totals = new Map<string, number>();
+  let uncategorized = 0;
+  for (const li of bill.lineItems) {
+    const splits = (li.splits as LineItemSplit[] | null) ?? null;
+    if (!splits || splits.length === 0) {
+      uncategorized += li.amountCents;
+      continue;
+    }
+    for (const a of allocateCents(li.amountCents, splits)) {
+      totals.set(a.category, (totals.get(a.category) ?? 0) + a.cents);
+    }
+  }
+  const sorted = Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
+  const grandTotal = sorted.reduce((s, [, c]) => s + c, 0) + uncategorized;
+
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <th className="pb-2">Category</th>
+          <th className="pb-2 text-right">Amount</th>
+          <th className="pb-2 text-right">% of total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map(([cat, cents]) => (
+          <tr key={cat} className="border-b border-border last:border-b-0">
+            <td className="py-2.5">{cat}</td>
+            <td className="py-2.5 text-right tabular font-medium">
+              {formatMoney(cents, bill.currency)}
+            </td>
+            <td className="py-2.5 text-right tabular text-muted-foreground">
+              {grandTotal > 0 ? ((cents / grandTotal) * 100).toFixed(1) : "0"}%
+            </td>
+          </tr>
+        ))}
+        {uncategorized > 0 && (
+          <tr className="border-b border-border last:border-b-0 text-muted-foreground">
+            <td className="py-2.5 italic">Uncategorized</td>
+            <td className="py-2.5 text-right tabular">
+              {formatMoney(uncategorized, bill.currency)}
+            </td>
+            <td className="py-2.5 text-right tabular">
+              {grandTotal > 0 ? ((uncategorized / grandTotal) * 100).toFixed(1) : "0"}%
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   );
 }
 

@@ -15,6 +15,13 @@
       "when": 1778464068809,
       "tag": "0001_mature_mandroid",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778465649992,
+      "tag": "0002_vengeful_the_executioner",
+      "breakpoints": true
     }
   ]
 }

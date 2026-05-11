@@ -114,6 +114,14 @@ export const bills = pgTable(
   ]
 );
 
+// A single line can be split across multiple GL categories.
+// Stored as jsonb for MVP simplicity; schema enforced in app code.
+// Sum of percentageBps across splits MUST equal 10000 (= 100%).
+export type LineItemSplit = {
+  category: string;
+  percentageBps: number; // basis points: 10000 = 100%
+};
+
 export const billLineItems = pgTable("bill_line_items", {
   id: uuid("id").primaryKey().defaultRandom(),
   billId: uuid("bill_id")
@@ -124,6 +132,7 @@ export const billLineItems = pgTable("bill_line_items", {
   unitPriceCents: integer("unit_price_cents"),
   amountCents: integer("amount_cents").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
+  splits: jsonb("splits").$type<LineItemSplit[]>(),
 });
 
 export const payments = pgTable("payments", {

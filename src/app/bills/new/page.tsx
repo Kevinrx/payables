@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileSpreadsheet, Sparkles } from "lucide-react";
 import { FileUploader } from "@/components/file-uploader";
 import { CreateManualBillLink } from "@/components/create-manual-bill-link";
 
@@ -33,8 +33,16 @@ export default function NewBillPage() {
         </p>
       </div>
 
-      <div className="mt-6 border-t border-border pt-6">
+      <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border pt-6">
         <CreateManualBillLink />
+        <Link
+          href="/bills/import"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <FileSpreadsheet className="h-3.5 w-3.5" />
+          Or bulk-import from CSV
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
       </div>
     </div>
   );

@@ -2,11 +2,13 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { Loader2, Plus, Save, Tag, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { BillDetail } from "@/db/queries";
 import { updateBill } from "@/app/bills/actions";
 import { dollarsToCents, formatMoney } from "@/lib/utils";
+import { formatSplitSummary, type LineItemSplit } from "@/lib/categories";
+import { LineItemSplitsDialog } from "./line-item-splits-dialog";
 
 type LineItemDraft = {
   key: string;
@@ -14,6 +16,7 @@ type LineItemDraft = {
   quantity: string;
   unit: string;
   amount: string;
+  splits: LineItemSplit[] | null;
 };
 
 function toDollarString(cents: number | null | undefined): string {
@@ -23,7 +26,16 @@ function toDollarString(cents: number | null | undefined): string {
 
 function billToLineItemDrafts(bill: BillDetail): LineItemDraft[] {
   if (bill.lineItems.length === 0) {
-    return [{ key: crypto.randomUUID(), description: "", quantity: "", unit: "", amount: "" }];
+    return [
+      {
+        key: crypto.randomUUID(),
+        description: "",
+        quantity: "",
+        unit: "",
+        amount: "",
+        splits: null,
+      },
+    ];
   }
   return bill.lineItems.map((li) => ({
     key: li.id,
@@ -31,6 +43,7 @@ function billToLineItemDrafts(bill: BillDetail): LineItemDraft[] {
     quantity: li.quantity?.toString() ?? "",
     unit: toDollarString(li.unitPriceCents),
     amount: toDollarString(li.amountCents),
+    splits: (li.splits as LineItemSplit[] | null) ?? null,
   }));
 }
 
@@ -47,6 +60,9 @@ export function BillEditor({ bill }: { bill: BillDetail }) {
   const [total, setTotal] = useState(toDollarString(bill.totalCents));
   const [notes, setNotes] = useState(bill.notes ?? "");
   const [lineItems, setLineItems] = useState<LineItemDraft[]>(() => billToLineItemDrafts(bill));
+  const [splittingKey, setSplittingKey] = useState<string | null>(null);
+
+  const splittingLine = lineItems.find((li) => li.key === splittingKey) ?? null;
 
   const lineItemsTotal = useMemo(() => {
     return lineItems.reduce((sum, li) => sum + dollarsToCents(li.amount), 0);
@@ -73,8 +89,12 @@ export function BillEditor({ bill }: { bill: BillDetail }) {
   function addLine() {
     setLineItems((items) => [
       ...items,
-      { key: crypto.randomUUID(), description: "", quantity: "", unit: "", amount: "" },
+      { key: crypto.randomUUID(), description: "", quantity: "", unit: "", amount: "", splits: null },
     ]);
+  }
+
+  function setLineSplits(key: string, splits: LineItemSplit[] | null) {
+    setLineItems((items) => items.map((li) => (li.key === key ? { ...li, splits } : li)));
   }
 
   function removeLine(key: string) {
@@ -89,6 +109,7 @@ export function BillEditor({ bill }: { bill: BillDetail }) {
         quantity: li.quantity ? Math.round(parseFloat(li.quantity)) : null,
         unitPriceCents: li.unit ? dollarsToCents(li.unit) : null,
         amountCents: dollarsToCents(li.amount),
+        splits: li.splits,
       }));
 
     startTransition(async () => {
@@ -195,7 +216,7 @@ export function BillEditor({ bill }: { bill: BillDetail }) {
             </thead>
             <tbody>
               {lineItems.map((li) => (
-                <tr key={li.key} className="border-b border-border last:border-b-0">
+                <tr key={li.key} className="border-b border-border last:border-b-0 align-top">
                   <td className="py-1.5 pr-2">
                     <input
                       type="text"
@@ -204,6 +225,21 @@ export function BillEditor({ bill }: { bill: BillDetail }) {
                       placeholder="Line item description"
                       className="h-8 w-full rounded-md border border-transparent bg-transparent px-1.5 text-sm hover:border-border focus:border-foreground focus:outline-none"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setSplittingKey(li.key)}
+                      className={`mt-0.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors ${
+                        li.splits && li.splits.length > 0
+                          ? "text-foreground hover:bg-muted"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                      title="Allocate to categories"
+                    >
+                      <Tag className="h-3 w-3" />
+                      <span className="truncate max-w-[260px]">
+                        {formatSplitSummary(li.splits)}
+                      </span>
+                    </button>
                   </td>
                   <td className="py-1.5 pr-2">
                     <input
@@ -256,6 +292,17 @@ export function BillEditor({ bill }: { bill: BillDetail }) {
           </button>
         </div>
       </section>
+
+      {splittingLine && (
+        <LineItemSplitsDialog
+          open={splittingKey !== null}
+          onOpenChange={(v) => !v && setSplittingKey(null)}
+          description={splittingLine.description || "Untitled line"}
+          amountCents={dollarsToCents(splittingLine.amount)}
+          initial={splittingLine.splits}
+          onSave={(splits) => setLineSplits(splittingLine.key, splits)}
+        />
+      )}
     </div>
   );
 }
