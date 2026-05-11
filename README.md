@@ -121,6 +121,21 @@ upload ─► draft ─► needs_review ─► approved ─► scheduled ─► 
 
 A successful upload+extract puts the bill in `needs_review`. If extraction fails, the bill stays as `draft` with empty fields and the UI prompts manual entry. Edits while in `draft` or `needs_review` keep the bill in `needs_review`. The forward path (`approve → schedule → pay`) only allows transitions from the immediately preceding state — every action checks status before mutating.
 
+## Production hardening I deliberately skipped
+
+This is a demo. Before this product touches a real customer, the following needs to happen — and not piecemeal, since several depend on each other:
+
+- **Auth.** Right now `/bills/[id]` is publicly accessible to anyone with the bill ID. Bill IDs are UUIDs (unguessable), but that's not a security model. Need session-based auth scoped to `org_id`, with the `WHERE org_id = ...` filter applied on every query.
+- **Private file storage + signed URLs.** Today, uploaded invoices live in a *public* Vercel Blob store — the URLs include unguessable random suffixes, but the files are world-readable to anyone who sees the URL (which can leak via referer, logs, or a shared bill link). The right setup is a *private* Blob store, with the server generating short-lived signed URLs in `getBillById` and refreshing them per request. **Doing this without auth first would be cosmetic** — anyone who could fetch the bill page would still get a fresh signed URL. Auth must come first.
+- **CSRF protection on server actions.** Next.js server actions have built-in protections, but a real product should also enforce origin checks for the upload endpoint.
+- **Rate limiting on the upload endpoint.** A single Anthropic vision call costs ~1¢; without limits, an attacker could run up an API bill quickly.
+- **PII redaction in logs.** The `extracted_json` column stores raw model output including vendor info; logs should never include it.
+- **File scanning.** Real AP products run uploads through ClamAV-equivalent before storing. Skipped here.
+- **Audit log immutability.** `bill_events` is append-only by convention but not by constraint. A real audit log would be in a separate, write-only table with a hash chain.
+- **Backup + retention policy.** Neon has PITR but the storage layer doesn't. Files should have a retention/legal hold story.
+
+None of this is hard individually, but doing them in the wrong order produces false security. The first step is always auth.
+
 ## What I'd build next
 
 In rough order of impact:
