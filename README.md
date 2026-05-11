@@ -37,13 +37,15 @@ In rough order of build effort:
 
 1. **Bill ingestion via Claude vision OCR** — the differentiator. Drop a PDF or image, Claude Sonnet 4.6 extracts vendor, invoice number, dates, subtotal/tax/total, line items, and notes into a strict JSON schema (enforced with Anthropic tool-use). New vendors are deduped by case-insensitive name and auto-created.
 2. **Manual bill creation** — when there's no invoice (recurring bills, email-only mentions, back-fill). One-click "Create a bill without an invoice" → empty draft, fill in the editor, same approval flow.
-3. **Review and edit** — inline editor on the bill detail page with vendor combobox, dates, totals, and a fully editable line-items table (add/remove rows, auto-compute amount from qty × unit). Saves write a `bill_events` audit row.
-4. **Approve → schedule → pay** — three explicit transitions, each with the right action button shown only when the bill is in the right state. Scheduling opens a small dialog (date, method, amount). Mark-paid finalizes.
-5. **Recurring bills** — "Repeat" any bill into N future drafts (monthly / quarterly / yearly). Children link back to the template via `parent_bill_id`. The bills list shows a small repeat icon; the detail page shows a "Recurring (view source)" pill.
-6. **Bills list with summary + filtering** — overdue, due-in-7-days, scheduled, and total outstanding stat cards (computed in SQL with FILTER aggregates). Search, status filter, and sortable columns. Per-row aging signal in the Due column ("4 days overdue", "in 6 days").
-7. **AP aging report** (`/aging`) — per-vendor table bucketed by days overdue (Current, 1–30, 31–60, 61–90, 90+), with a totals row and headline summary cards. Single SQL query using `SUM(CASE WHEN ...)` per bucket.
-8. **Per-bill activity timeline** — every state transition logged as a `bill_events` row, rendered as a vertical timeline on the detail page. Doubles as audit trail.
-9. **Vendors view** — companion list with bill counts, outstanding totals, and lifetime paid per vendor.
+3. **CSV bulk import** (`/bills/import`) — drop a spreadsheet, get a preview table, hit Import. Per-row validation (skips bad rows with an error list). Vendor dedup runs against the existing org so no duplicates are created. Common header aliases accepted (`vendor` / `vendor_name`, `amount` / `total`).
+4. **Review and edit** — inline editor on the bill detail page with vendor combobox, dates, totals, and a fully editable line-items table (add/remove rows, auto-compute amount from qty × unit). Saves write a `bill_events` audit row.
+5. **Line item category splits** — every line item can be allocated across multiple GL categories (e.g. "AWS hosting: 60% R&D, 40% Marketing"). Inline editor with a "distribute evenly" helper, "fill remaining %" wand, and a live cents preview per split. The bill detail page aggregates splits into a "Category breakdown" table.
+6. **Approve → schedule → pay** — three explicit transitions, each with the right action button shown only when the bill is in the right state. Scheduling opens a small dialog (date, method, amount). Mark-paid finalizes.
+7. **Recurring bills** — "Repeat" any bill into N future drafts (monthly / quarterly / yearly). Children link back to the template via `parent_bill_id`. The bills list shows a small repeat icon; the detail page shows a "Recurring (view source)" pill.
+8. **Bills list with summary + filtering** — overdue, due-in-7-days, scheduled, and total outstanding stat cards (computed in SQL with FILTER aggregates). Search, status filter, and sortable columns. Per-row aging signal in the Due column ("4 days overdue", "in 6 days").
+9. **AP aging report** (`/aging`) — per-vendor table bucketed by days overdue (Current, 1–30, 31–60, 61–90, 90+), with a totals row and headline summary cards. Single SQL query using `SUM(CASE WHEN ...)` per bucket.
+10. **Per-bill activity timeline** — every state transition logged as a `bill_events` row, rendered as a vertical timeline on the detail page. Doubles as audit trail.
+11. **Vendors view** — companion list with bill counts, outstanding totals, and lifetime paid per vendor.
 
 ## What I left out and why
 
@@ -52,10 +54,8 @@ In rough order of build effort:
 | **Auth / multi-tenant** | Single demo workspace. The `organizations` FK is in the schema, so adding auth becomes a session-derived scope filter — no schema migration. |
 | **Real payment rails (ACH/check/card)** | "Mark paid" mutates state without moving money. Real rails (Modern Treasury, Stripe ACH, Increase) are an integration project, not a product project. |
 | **AP email forwarding (`@ap.ramp.com` inbox)** | Same backend, different ingestion source — receive email via Postmark/SES → invoke the same upload pipeline. ~2 hours, not magic. |
-| **CSV bulk upload** | Same backend, different parser. Trivial to add against the existing schema. |
 | **Multi-approver workflows / approval policies** | Interesting product surface (rules, thresholds, escalations) but a deep UI rabbit hole that wouldn't fit. |
-| **GL coding / class/department splits** | Needs a chart-of-accounts model and a split editor — at least 3 hours on its own. |
-| **Accounting integrations (QBO, Xero, Netsuite)** | Each is a multi-day project. Out of scope for a takehome. |
+| **Accounting integrations (QBO, Xero, Netsuite)** | Each is a multi-day project. Categories live in the app today (hardcoded list); v2 syncs them from a chart of accounts. |
 | **Real-time collaboration / comments** | Nice-to-have. The audit log gets you 80% of the visibility benefit. |
 
 The interesting choices are mostly about **what got shipped in detail vs. what was acknowledged but skipped**. I'd rather hand off one loop that feels finished than five half-built features.
@@ -163,7 +163,8 @@ src/
 │   │   ├── actions.ts          ← all server actions: runExtraction, updateBill,
 │   │   │                         approveBill, schedulePayment, markBillPaid,
 │   │   │                         createManualBill, repeatBill
-│   │   ├── new/page.tsx        ← upload UI + manual create entry point
+│   │   ├── new/page.tsx        ← upload UI + manual create + CSV import entry points
+│   │   ├── import/page.tsx     ← CSV bulk upload page
 │   │   └── [id]/
 │   │       ├── page.tsx        ← detail (server): editor + payments + timeline
 │   │       └── loading.tsx     ← skeleton for /bills/[id]
@@ -182,9 +183,11 @@ src/
 │   ├── bill-editor.tsx         ← inline editable form for draft/needs_review bills
 │   ├── bill-event-timeline.tsx ← vertical timeline for activity
 │   ├── create-manual-bill-link.tsx ← creates an empty draft, redirects to editor
+│   ├── csv-importer.tsx        ← drag-drop CSV, parse + preview + bulk import
 │   ├── extraction-pending.tsx  ← skeleton + Claude trigger on first load
 │   ├── file-preview.tsx        ← <embed>/<img> for PDF or image invoices
 │   ├── file-uploader.tsx       ← drag-and-drop with mime/size validation
+│   ├── line-item-splits-dialog.tsx ← per-line allocation across categories (must sum to 100%)
 │   ├── repeat-bill-dialog.tsx  ← modal: frequency + count, generates child bills
 │   └── schedule-payment-dialog.tsx ← modal: date, method, amount
 ├── db/
@@ -193,6 +196,7 @@ src/
 │   └── queries.ts              ← shared read queries: listBills, getBillById,
 │                                  getBillSummary, listVendors
 └── lib/
+    ├── categories.ts           ← hardcoded GL category list + split helpers (alloc, fmt)
     ├── extract.ts              ← Anthropic SDK call + Zod validation
     ├── storage.ts              ← Vercel Blob OR local fs fallback
     └── utils.ts                ← cn(), formatMoney, daysUntilDue, agingBucket
@@ -227,7 +231,7 @@ Six tables. Six. Money is integers. Dates are dates. Statuses are Postgres enums
 - **`organizations`** — pure FK target. There's a single seeded org. Every other table has `org_id` so adding multi-tenancy is a `WHERE org_id = ...` filter, not a schema migration.
 - **`vendors`** — separate from bills so dedup works (one Acme, many bills). Unique index on `(org_id, lower(name))` enforces case-insensitive uniqueness.
 - **`bills`** — the spine. Stores extracted fields (`invoice_number`, dates, money), denormalized status, `extracted_json` (the raw model response) so we never lose information during the parse, and an optional `parent_bill_id` self-FK pointing at the template a recurring bill was generated from (NULL for non-recurring or for the template itself).
-- **`bill_line_items`** — `qty × unit_price = amount_cents`, all integers. Soft-deleted via re-insert on edit (the editor wipes + re-inserts inside one transaction, simpler than diffing).
+- **`bill_line_items`** — `qty × unit_price = amount_cents`, all integers. Soft-deleted via re-insert on edit (the editor wipes + re-inserts inside one transaction, simpler than diffing). Each line carries an optional `splits` jsonb array (`[{category, percentageBps}]`) for cross-category allocation; sum-to-100% is enforced in the action layer.
 - **`payments`** — 1:N with bills today, but the schema supports split/partial payments (just create more rows). `paid_at` is nullable; non-null means it's actually paid.
 - **`bill_events`** — append-only. One row per state transition with a `payload` jsonb for context (approver email, payment id, model confidence). Powers the timeline UI and the audit story without a separate event-sourcing library.
 
@@ -363,10 +367,10 @@ In rough order of impact:
 
 1. **Real approval rules** — thresholds (amounts ≥ $X require approver Y), routing by category, multi-step approvals.
 2. **AP email forwarding** — Postmark inbound webhook → same upload pipeline. 2 hours.
-3. **CSV bulk upload** — small parser feeding the same insert path.
+3. **Allocation templates** — save common splits (e.g. "Standard SaaS: 70% R&D, 30% G&A") and apply with one click.
 4. **Recurring bills v2** — today the user clicks "Repeat" and we eagerly clone N copies. v2 should be a real schedule (cron worker creates the next instance N days before due) and a `/recurring` page to manage active series.
 5. **Vendor pages** — drill-in showing all bills, payment history, contact info, default payment method, 1099 data.
-6. **GL coding & line-item splits** — chart of accounts, per-line allocation editor, sync to QBO/Xero.
+6. **Chart of accounts + accounting sync** — replace the hardcoded category list with a per-org CoA, and push categorized bills to QBO/Xero/Netsuite.
 7. **Real payment rails** — Modern Treasury for ACH, Increase for checks, Stripe for cards. Becomes async with payment status callbacks.
 8. **Tests** — server actions deserve real DB integration tests. Skipped here for time.
 
