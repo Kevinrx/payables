@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { AlertTriangle, CheckCircle2, Info, XCircle } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import "./globals.css";
+
+const TOAST_DURATION_MS = 4000;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,8 +39,15 @@ export default function RootLayout({
           position="top-center"
           closeButton
           theme="light"
+          icons={{
+            success: <CheckCircle2 strokeWidth={1.8} />,
+            error:   <XCircle strokeWidth={1.8} />,
+            warning: <AlertTriangle strokeWidth={1.8} />,
+            info:    <Info strokeWidth={1.8} />,
+          }}
           toastOptions={{
             unstyled: true,
+            duration: TOAST_DURATION_MS,
             classNames: {
               toast: "tt-toast",
               title: "tt-title",

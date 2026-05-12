@@ -378,62 +378,107 @@ body {
 }
 
 /* ----- Toasts (sonner) — Trashlab Toast design ----- */
-/* White card · heavy ink border · colored left accent stripe ·
-   haloed circular icon. Every type shares the same shape; the
-   stripe and icon halo are the only per-type changes. */
+/* Soft tinted card · flat icon · uppercase title · muted
+   description · progress bar at the bottom that depletes over
+   the toast's duration. Type color drives the surface tint,
+   icon color, and progress bar; the title text stays dark. */
 .tt-toast {
   position: relative;
   overflow: hidden;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  column-gap: 12px;
+  row-gap: 2px;
+  align-items: start;
   width: 380px;
   max-width: calc(100vw - 32px);
-  padding: 14px 16px 14px 20px; /* extra left for accent stripe */
+  padding: 14px 16px 16px 16px;
   border-radius: var(--r-md);
   background: var(--surface);
   color: var(--ink);
-  border: 1.5px solid var(--ink);
+  border: 1px solid var(--rule);
   box-shadow: var(--shadow-2);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-size: 13px;
   line-height: 1.4;
 }
-.tt-toast::before {
-  content: "";
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 6px;
-  background: var(--ink); /* default — overridden per type */
+
+/* Title: small uppercase mono in the type color — reads as an
+   eyebrow when paired with the description. */
+.tt-title {
+  grid-column: 2;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
-.tt-toast[data-type="success"]::before { background: var(--success); }
-.tt-toast[data-type="error"]::before   { background: var(--danger); }
-.tt-toast[data-type="warning"]::before { background: var(--warn-strong); }
-.tt-toast[data-type="info"]::before    { background: var(--info); }
+.tt-description {
+  grid-column: 2;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+}
 
-.tt-title       { font-weight: 600; color: var(--ink); }
-.tt-description { margin-top: 2px; font-size: 12px; color: var(--ink-faint); }
-
-/* Haloed icon: tinted circle with type-colored glyph. */
+/* Flat icon at left, no circular halo — matches design. */
 .tt-icon {
+  grid-column: 1;
+  grid-row: 1 / span 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  flex: none;
-  margin-top: 0;
-  border-radius: 999px;
-  background: var(--paper-sunken);
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
   color: var(--ink-faint);
 }
-.tt-icon > svg { width: 12px; height: 12px; }
-.tt-toast[data-type="success"] .tt-icon { background: var(--success-soft); color: var(--success); }
-.tt-toast[data-type="error"]   .tt-icon { background: var(--danger-soft);  color: var(--danger);  }
-.tt-toast[data-type="warning"] .tt-icon { background: var(--warn-soft);    color: var(--warn-strong); }
-.tt-toast[data-type="info"]    .tt-icon { background: var(--info-soft);    color: var(--info);    }
+.tt-icon > svg { width: 16px; height: 16px; }
+
+/* Per-type soft surfaces. */
+.tt-toast[data-type="success"] { background: var(--success-soft); border-color: transparent; }
+.tt-toast[data-type="error"]   { background: var(--danger-soft);  border-color: transparent; }
+.tt-toast[data-type="warning"] { background: var(--warn-soft);    border-color: transparent; }
+.tt-toast[data-type="info"]    { background: var(--info-soft);    border-color: transparent; }
+
+/* Per-type accent: title eyebrow + icon glyph. */
+.tt-toast[data-type="success"] .tt-title,
+.tt-toast[data-type="success"] .tt-icon { color: var(--success); }
+.tt-toast[data-type="error"]   .tt-title,
+.tt-toast[data-type="error"]   .tt-icon { color: var(--danger); }
+.tt-toast[data-type="warning"] .tt-title,
+.tt-toast[data-type="warning"] .tt-icon { color: var(--warn-strong); }
+.tt-toast[data-type="info"]    .tt-title,
+.tt-toast[data-type="info"]    .tt-icon { color: var(--info); }
+
+/* Bottom progress bar — depletes left → right over the toast
+   duration (set globally via Toaster's toastOptions.duration). */
+.tt-toast::after {
+  content: "";
+  position: absolute;
+  left: 16px; right: 16px; bottom: 0;
+  height: 2px;
+  background: var(--ink-faint);
+  border-radius: 2px;
+  transform-origin: left;
+  animation: tt-progress var(--tt-dur, 4000ms) linear forwards;
+  opacity: 0.65;
+}
+.tt-toast[data-type="success"]::after { background: var(--success); }
+.tt-toast[data-type="error"]::after   { background: var(--danger);  }
+.tt-toast[data-type="warning"]::after { background: var(--warn-strong); }
+.tt-toast[data-type="info"]::after    { background: var(--info);    }
+.tt-toast:hover::after                { animation-play-state: paused; }
+@keyframes tt-progress {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
 
 .tt-close {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
   border: 0 !important;
   background: transparent !important;
   color: var(--ink-faint) !important;
