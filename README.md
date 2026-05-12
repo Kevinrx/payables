@@ -11,7 +11,8 @@ A small, opinionated payables product inspired by [Ramp Bill Pay](https://suppor
 1. Open https://trashlab-payables.vercel.app → click around the seeded bills, try filtering by status
 2. Click **New bill** → upload any PDF from the [`samples/`](./samples) folder (or your own invoice)
 3. Watch the form populate from Claude vision in ~6 seconds — edit anything, approve, schedule a payment, mark paid
-4. Open **Aging** in the nav to see overdue bills bucketed by vendor
+4. Click **New bill** → "Or bulk-import from CSV" → drop [`samples/bulk-import.csv`](./samples/bulk-import.csv) to import 8 bills at once
+5. Open **Aging** in the nav to see overdue bills bucketed by vendor
 
 ---
 
