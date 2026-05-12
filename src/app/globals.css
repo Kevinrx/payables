@@ -377,11 +377,11 @@ body {
   background-size: 18px 18px;
 }
 
-/* ----- Toasts (sonner) — single visual primitive for every type ----- */
+/* ----- Toasts (sonner) — single visual primitive, color by type ----- */
 /* Toaster is rendered with toastOptions.unstyled, so sonner's defaults
-   are off and these classes are the entire visual contract. Success,
-   error, info, and default all share the same shape; only the leading
-   icon's tint differs by type. */
+   are off and these classes are the entire visual contract. Every type
+   shares the same shape; soft background + strong colored text vary by
+   type (matches the .pill-* convention used for status pills). */
 .tt-toast {
   display: flex;
   align-items: flex-start;
@@ -390,23 +390,16 @@ body {
   max-width: calc(100vw - 32px);
   padding: 12px 14px;
   border-radius: 10px;
-  background: var(--ink);
-  color: var(--paper);
-  border: 1px solid var(--ink);
-  box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.35);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  box-shadow: var(--shadow-2);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-size: 13px;
   line-height: 1.4;
 }
-.tt-title {
-  font-weight: 500;
-  color: var(--paper);
-}
-.tt-description {
-  margin-top: 2px;
-  font-size: 12px;
-  color: oklch(0.85 0.012 65); /* muted paper */
-}
+.tt-title       { font-weight: 500; color: inherit; }
+.tt-description { margin-top: 2px; font-size: 12px; color: inherit; opacity: 0.78; }
 .tt-icon {
   display: inline-flex;
   align-items: center;
@@ -415,23 +408,40 @@ body {
   height: 16px;
   flex: none;
   margin-top: 1px;
-  color: oklch(0.85 0.012 65); /* default: muted */
+  color: inherit;
 }
-.tt-icon > svg {
-  width: 14px;
-  height: 14px;
+.tt-icon > svg { width: 14px; height: 14px; }
+
+.tt-toast[data-type="success"] {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: transparent;
 }
-[data-sonner-toast][data-type="success"] .tt-icon { color: oklch(0.72 0.13 150); }
-[data-sonner-toast][data-type="error"]   .tt-icon { color: oklch(0.72 0.16 25);  }
-[data-sonner-toast][data-type="warning"] .tt-icon { color: oklch(0.78 0.14 80);  }
+.tt-toast[data-type="error"] {
+  background: var(--danger-soft);
+  color: var(--danger-strong);
+  border-color: transparent;
+}
+.tt-toast[data-type="warning"] {
+  background: var(--warn-soft);
+  color: var(--warn-strong);
+  border-color: transparent;
+}
+.tt-toast[data-type="info"] {
+  background: var(--info-soft);
+  color: var(--info);
+  border-color: transparent;
+}
+
 .tt-close {
   border: 0 !important;
   background: transparent !important;
-  color: oklch(0.7 0.012 65) !important;
+  color: currentColor !important;
+  opacity: 0.55;
   width: 18px !important;
   height: 18px !important;
 }
-.tt-close:hover { color: var(--paper) !important; }
+.tt-close:hover { opacity: 1; }
 
 /* ----- Focus ring helper for arbitrary focusable elements ----- */
 .focus-ring:focus-visible {
