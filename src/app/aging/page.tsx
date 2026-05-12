@@ -243,11 +243,12 @@ function BucketCard({
   const pct = grand > 0 ? (cents / grand) * 100 : 0;
   const color = toneColor(tone, isZero);
   return (
-    <div className="surface px-4 py-3.5">
+    <div className="surface px-3 py-3 sm:px-4 sm:py-3.5">
       <div className="micro">{label}</div>
       <div
-        className="mt-2 text-[26px] leading-none font-semibold tabular tracking-tight font-mono"
+        className="mt-2 truncate text-[17px] leading-none font-semibold tabular tracking-tight font-mono sm:text-[22px] lg:text-[26px]"
         style={{ color }}
+        title={formatMoney(cents)}
       >
         {formatMoney(cents)}
       </div>
