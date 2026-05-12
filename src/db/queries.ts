@@ -139,3 +139,54 @@ export async function listVendors(orgId: string) {
     .where(eq(vendors.orgId, orgId))
     .orderBy(asc(vendors.name));
 }
+
+export async function getVendorById(vendorId: string, orgId: string) {
+  const [vendor] = await db
+    .select()
+    .from(vendors)
+    .where(and(eq(vendors.id, vendorId), eq(vendors.orgId, orgId)))
+    .limit(1);
+  if (!vendor) return null;
+
+  const vendorBills = await db
+    .select({
+      id: bills.id,
+      invoiceNumber: bills.invoiceNumber,
+      invoiceDate: bills.invoiceDate,
+      dueDate: bills.dueDate,
+      totalCents: bills.totalCents,
+      currency: bills.currency,
+      status: bills.status,
+      notes: bills.notes,
+      createdAt: bills.createdAt,
+    })
+    .from(bills)
+    .where(and(eq(bills.vendorId, vendorId), eq(bills.orgId, orgId)))
+    .orderBy(asc(bills.dueDate), desc(bills.createdAt));
+
+  const stats = vendorBills.reduce(
+    (acc, b) => {
+      const cents = b.totalCents ?? 0;
+      if (b.status === "paid") acc.paidCents += cents;
+      else if (b.status !== "void") acc.outstandingCents += cents;
+      acc.byStatus[b.status] = (acc.byStatus[b.status] ?? 0) + 1;
+      return acc;
+    },
+    {
+      paidCents: 0,
+      outstandingCents: 0,
+      byStatus: {} as Record<string, number>,
+    }
+  );
+
+  return {
+    vendor,
+    bills: vendorBills,
+    stats: {
+      ...stats,
+      billCount: vendorBills.length,
+    },
+  };
+}
+
+export type VendorDetail = NonNullable<Awaited<ReturnType<typeof getVendorById>>>;

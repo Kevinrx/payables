@@ -102,14 +102,14 @@ function VendorRowItem({ v }: { v: VendorRow }) {
   const initials = getInitials(v.name);
   const hasPaid = v.paidCents > 0;
   const hasOutstanding = v.outstandingCents > 0;
-  const billsUrl = `/bills?vendor=${encodeURIComponent(v.name)}`;
+  const detailUrl = `/vendors/${v.id}`;
   return (
     <tr
       className="group transition-colors hover:bg-paper-sunken"
       style={{ borderBottom: "1px solid var(--rule-faint)" }}
     >
       <td className="px-4 py-3">
-        <Link href={billsUrl} className="flex items-center gap-3">
+        <Link href={detailUrl} className="flex items-center gap-3">
           <span
             className="grid h-9 w-9 flex-none place-items-center rounded-md text-[11px] font-semibold uppercase"
             style={{
@@ -165,8 +165,8 @@ function VendorRowItem({ v }: { v: VendorRow }) {
       </td>
       <td className="px-3 py-3 text-right">
         <Link
-          href={billsUrl}
-          aria-label={`View bills for ${v.name}`}
+          href={detailUrl}
+          aria-label={`Open ${v.name}`}
           className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-fainter transition-colors hover:bg-paper-sunken hover:text-ink"
         >
           <ChevronRight className="h-4 w-4" />

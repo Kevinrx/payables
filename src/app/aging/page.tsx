@@ -174,7 +174,7 @@ export default async function AgingPage() {
                   >
                     <td className="px-4 py-3">
                       <Link
-                        href={`/bills?vendor=${encodeURIComponent(r.vendor_name)}`}
+                        href={`/vendors/${r.vendor_id}`}
                         className="text-[13.5px] font-medium hover:underline"
                       >
                         {r.vendor_name}

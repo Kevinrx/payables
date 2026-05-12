@@ -72,6 +72,24 @@ export function ExpectedColumnsPanel() {
             <ColumnPill key={c} label={c} tone="optional" />
           ))}
         </div>
+
+        <div
+          className="text-[10.5px] uppercase tracking-[0.08em] tabular pt-1.5"
+          style={{
+            color: "var(--ink-faint)",
+            fontFamily: "var(--font-geist-mono), monospace",
+          }}
+        >
+          Aliases
+        </div>
+        <div
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px]"
+          style={{ color: "var(--ink-faint)" }}
+        >
+          <AliasPair from="vendor" to="vendor_name" />
+          <AliasPair from="amount" to="total" />
+          <AliasPair from="invoice_no" to="invoice_number" />
+        </div>
       </div>
 
       {showTemplate && (
@@ -114,6 +132,32 @@ function ColumnPill({ label, tone }: { label: string; tone: "required" | "option
       }}
     >
       {label}
+    </span>
+  );
+}
+
+function AliasPair({ from, to }: { from: string; to: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <code
+        className="rounded px-1 py-0.5"
+        style={{
+          fontFamily: "var(--font-geist-mono), monospace",
+          background: "var(--paper-sunken)",
+          color: "var(--ink-2)",
+        }}
+      >
+        {from}
+      </code>
+      <span style={{ color: "var(--ink-fainter)" }}>→</span>
+      <code
+        style={{
+          fontFamily: "var(--font-geist-mono), monospace",
+          color: "var(--ink-2)",
+        }}
+      >
+        {to}
+      </code>
     </span>
   );
 }
