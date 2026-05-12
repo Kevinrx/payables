@@ -71,6 +71,7 @@ export async function importBillsFromCsv(
             invoiceNumber: row.invoice_number,
             invoiceDate: row.invoice_date,
             dueDate: row.due_date,
+            subtotalCents: totalCents,
             totalCents,
             currency: row.currency || "USD",
             status: "needs_review",
@@ -78,6 +79,18 @@ export async function importBillsFromCsv(
             notes: row.notes,
           })
           .returning();
+
+        // CSV is one-row-per-bill, so we create a single placeholder line
+        // item carrying the full total. The user can split it later in the
+        // editor if they need a real breakdown.
+        await tx.insert(billLineItems).values({
+          billId: bill.id,
+          description: row.notes || row.invoice_number || "Bill total",
+          quantity: 1,
+          unitPriceCents: totalCents,
+          amountCents: totalCents,
+          sortOrder: 0,
+        });
 
         await tx.insert(billEvents).values({
           billId: bill.id,
