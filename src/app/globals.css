@@ -377,71 +377,71 @@ body {
   background-size: 18px 18px;
 }
 
-/* ----- Toasts (sonner) — single visual primitive, color by type ----- */
-/* Toaster is rendered with toastOptions.unstyled, so sonner's defaults
-   are off and these classes are the entire visual contract. Every type
-   shares the same shape; soft background + strong colored text vary by
-   type (matches the .pill-* convention used for status pills). */
+/* ----- Toasts (sonner) — Trashlab Toast design ----- */
+/* White card · heavy ink border · colored left accent stripe ·
+   haloed circular icon. Every type shares the same shape; the
+   stripe and icon halo are the only per-type changes. */
 .tt-toast {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  width: 360px;
+  gap: 12px;
+  width: 380px;
   max-width: calc(100vw - 32px);
-  padding: 12px 14px;
-  border-radius: 10px;
+  padding: 14px 16px 14px 20px; /* extra left for accent stripe */
+  border-radius: var(--r-md);
   background: var(--surface);
   color: var(--ink);
-  border: 1px solid var(--rule);
+  border: 1.5px solid var(--ink);
   box-shadow: var(--shadow-2);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-size: 13px;
   line-height: 1.4;
 }
-.tt-title       { font-weight: 500; color: inherit; }
-.tt-description { margin-top: 2px; font-size: 12px; color: inherit; opacity: 0.78; }
+.tt-toast::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 6px;
+  background: var(--ink); /* default — overridden per type */
+}
+.tt-toast[data-type="success"]::before { background: var(--success); }
+.tt-toast[data-type="error"]::before   { background: var(--danger); }
+.tt-toast[data-type="warning"]::before { background: var(--warn-strong); }
+.tt-toast[data-type="info"]::before    { background: var(--info); }
+
+.tt-title       { font-weight: 600; color: var(--ink); }
+.tt-description { margin-top: 2px; font-size: 12px; color: var(--ink-faint); }
+
+/* Haloed icon: tinted circle with type-colored glyph. */
 .tt-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   flex: none;
-  margin-top: 1px;
-  color: inherit;
+  margin-top: 0;
+  border-radius: 999px;
+  background: var(--paper-sunken);
+  color: var(--ink-faint);
 }
-.tt-icon > svg { width: 14px; height: 14px; }
-
-.tt-toast[data-type="success"] {
-  background: var(--success-soft);
-  color: var(--success);
-  border-color: transparent;
-}
-.tt-toast[data-type="error"] {
-  background: var(--danger-soft);
-  color: var(--danger-strong);
-  border-color: transparent;
-}
-.tt-toast[data-type="warning"] {
-  background: var(--warn-soft);
-  color: var(--warn-strong);
-  border-color: transparent;
-}
-.tt-toast[data-type="info"] {
-  background: var(--info-soft);
-  color: var(--info);
-  border-color: transparent;
-}
+.tt-icon > svg { width: 12px; height: 12px; }
+.tt-toast[data-type="success"] .tt-icon { background: var(--success-soft); color: var(--success); }
+.tt-toast[data-type="error"]   .tt-icon { background: var(--danger-soft);  color: var(--danger);  }
+.tt-toast[data-type="warning"] .tt-icon { background: var(--warn-soft);    color: var(--warn-strong); }
+.tt-toast[data-type="info"]    .tt-icon { background: var(--info-soft);    color: var(--info);    }
 
 .tt-close {
   border: 0 !important;
   background: transparent !important;
-  color: currentColor !important;
+  color: var(--ink-faint) !important;
   opacity: 0.55;
   width: 18px !important;
   height: 18px !important;
 }
-.tt-close:hover { opacity: 1; }
+.tt-close:hover { opacity: 1; color: var(--ink) !important; }
 
 /* ----- Focus ring helper for arbitrary focusable elements ----- */
 .focus-ring:focus-visible {
