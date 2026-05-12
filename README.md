@@ -97,7 +97,9 @@ Open the app and either:
 | `db:reset` | `migrate` then `seed` |
 | `db:studio` | Open Drizzle Studio (DB browser) |
 | `samples` | Generate sample invoice PDFs into `./samples/` |
+| `test` | Run Vitest unit tests (pure helpers: money formatting, aging buckets, split allocation) |
 | `test:extract` | One-shot extraction test against any local file: `npm run test:extract -- samples/01-acme-cloud.pdf` |
+| `smoke` | HTTP smoke test against a running app. Default: `localhost:3000`. Pass a URL to hit prod: `npm run smoke -- https://your.vercel.app` |
 
 ---
 
@@ -119,7 +121,7 @@ Each row is **chose / considered / why** so the trade-offs are explicit.
 | **Icons** | lucide-react | Heroicons, Phosphor | 1500+ icons, consistent stroke weight, tree-shakeable. |
 | **Migrations** | `drizzle-kit generate` + tsx migrator script | `drizzle-kit push` | Push needs a TTY (broken in non-interactive shells / CI), so explicit migration files committed to the repo it is. Bonus: I can read the SQL before applying. |
 | **Forms** | React local state + server actions | react-hook-form, Formik, TanStack Form | The bill editor has maybe 15 fields. A form library would add 8KB and a layer of indirection for no win. |
-| **Tests** | None (gasp) | Vitest, Playwright | Honest cost/value call for 6h of build time. The right tests for this codebase are server-action integration tests against a throwaway Postgres — that's 2-3h of infra by itself. Documented as a gap. |
+| **Tests** | Vitest (pure helpers) + HTTP smoke script | Playwright e2e, DB integration tests | Vitest covers the deterministic logic (money math, aging buckets, split allocation, percentage round-tripping — 37 tests). The smoke script validates that every route returns 200 + expected content against any deploy. **Not** covered: server-action integration tests against a real DB (the most valuable remaining tests; would need a throwaway Postgres + 2-3h of infra). |
 
 ## Patterns
 
@@ -197,15 +199,18 @@ src/
 │                                  getBillSummary, listVendors
 └── lib/
     ├── categories.ts           ← hardcoded GL category list + split helpers (alloc, fmt)
+    ├── categories.test.ts      ← Vitest unit tests for split allocation
     ├── extract.ts              ← Anthropic SDK call + Zod validation
     ├── storage.ts              ← Vercel Blob OR local fs fallback
-    └── utils.ts                ← cn(), formatMoney, daysUntilDue, agingBucket
+    ├── utils.ts                ← cn(), formatMoney, daysUntilDue, agingBucket
+    └── utils.test.ts           ← Vitest unit tests for money/date/aging helpers
 
 scripts/
 ├── load-env.ts                 ← loads .env.local for standalone scripts
 ├── migrate.ts                  ← drizzle-orm migrator (avoids drizzle-kit's TTY)
 ├── seed.ts                     ← 9 demo bills across all statuses
 ├── generate-samples.ts         ← writes 3 PDF invoices into ./samples/
+├── smoke.ts                    ← HTTP smoke test: hits each route, asserts 200 + content
 ├── test-extract.ts             ← npm run test:extract -- <file>
 └── peek.ts                     ← inspect a bill row by id
 
@@ -372,7 +377,7 @@ In rough order of impact:
 5. **Vendor pages** — drill-in showing all bills, payment history, contact info, default payment method, 1099 data.
 6. **Chart of accounts + accounting sync** — replace the hardcoded category list with a per-org CoA, and push categorized bills to QBO/Xero/Netsuite.
 7. **Real payment rails** — Modern Treasury for ACH, Increase for checks, Stripe for cards. Becomes async with payment status callbacks.
-8. **Tests** — server actions deserve real DB integration tests. Skipped here for time.
+8. **Server-action integration tests** — the Vitest suite today covers pure helpers and an HTTP smoke script covers route liveness, but the mutation paths (approve, schedule, mark paid, extract, repeat, import) deserve real DB tests against a throwaway Postgres.
 
 ## Honest things I'd change with another day
 
@@ -386,4 +391,4 @@ In rough order of impact:
 
 ---
 
-No tests, no Storybook, no monorepo, no `shadcn/ui`. Just the shape of the thing.
+No Storybook, no monorepo, no `shadcn/ui`. Vitest covers the deterministic helpers and a smoke script covers route liveness; broader integration tests are a documented gap. Just the shape of the thing.
