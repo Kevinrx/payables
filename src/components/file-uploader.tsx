@@ -6,6 +6,7 @@ import { FileUp, Loader2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 
 const ACCEPTED_MIME = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
+const FORMAT_TAGS = ["PDF", "PNG", "JPEG", "WEBP", "UP TO 10 MB"];
 
 export function FileUploader() {
   const router = useRouter();
@@ -62,24 +63,33 @@ export function FileUploader() {
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        className={`group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-card px-6 py-12 text-center transition-colors ${
-          isDragOver
-            ? "border-foreground bg-muted"
-            : "border-border hover:border-border-strong"
-        }`}
+        className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-14 text-center transition-colors"
+        style={{
+          background: isDragOver ? "var(--brand-soft)" : "var(--surface)",
+          borderColor: isDragOver ? "var(--brand)" : "var(--rule-strong)",
+        }}
       >
         <span
-          className={`grid h-12 w-12 place-items-center rounded-full transition-colors ${
-            isDragOver ? "bg-foreground text-background" : "bg-muted text-muted-foreground"
-          }`}
+          className="grid h-12 w-12 place-items-center rounded-md transition-colors"
+          style={{
+            background: isDragOver ? "var(--surface)" : "var(--paper-sunken)",
+            color: isDragOver ? "var(--brand)" : "var(--ink-2)",
+            border: "1px solid var(--rule)",
+          }}
         >
           <FileUp className="h-5 w-5" />
         </span>
-        <p className="mt-3 text-sm font-medium">
-          Drop an invoice here, or <span className="text-brand">browse</span>
+        <p className="mt-4 text-[15px] font-semibold tracking-tight">
+          Drag an invoice here, or click to browse
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          PDF, PNG, JPEG, or WebP &middot; up to 10 MB
+        <p
+          className="mt-2 text-[10.5px] uppercase tracking-[0.12em] tabular"
+          style={{
+            color: "var(--ink-fainter)",
+            fontFamily: "var(--font-geist-mono), monospace",
+          }}
+        >
+          {FORMAT_TAGS.join(" · ")}
         </p>
         <input
           type="file"
@@ -93,10 +103,13 @@ export function FileUploader() {
       </label>
 
       {file && (
-        <div className="surface mt-3 flex items-center justify-between px-3.5 py-3 fade-up">
+        <div className="surface fade-up mt-3 flex items-center justify-between px-3.5 py-3">
           <div className="min-w-0">
             <div className="truncate text-[13px] font-medium">{file.name}</div>
-            <div className="text-[11.5px] text-ink-faint tabular font-mono">
+            <div
+              className="text-[11.5px] tabular font-mono"
+              style={{ color: "var(--ink-faint)" }}
+            >
               {(file.size / 1024).toFixed(1)} KB · {file.type}
             </div>
           </div>
@@ -105,10 +118,10 @@ export function FileUploader() {
               type="button"
               onClick={() => setFile(null)}
               disabled={isPending}
-              className="btn-ghost grid h-8 w-8 place-items-center rounded-md"
+              className="btn btn-ghost btn-sm"
               aria-label="Remove file"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" />
             </button>
             <button
               type="button"

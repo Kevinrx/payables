@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, FileSpreadsheet, Sparkles } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { FileUploader } from "@/components/file-uploader";
 import { CreateManualBillLink } from "@/components/create-manual-bill-link";
 
@@ -11,10 +11,12 @@ export default function NewBillPage() {
         Back to bills
       </Link>
 
-      <div className="mt-3">
-        <h1 className="text-[26px] font-semibold tracking-tight">Upload an invoice</h1>
-        <p className="mt-1 text-[13px] text-ink-faint">
-          Drop a PDF or image. We'll use Claude vision to extract vendor, amounts, dates, and line items.
+      <div className="mt-4">
+        <span className="micro">New bill</span>
+        <h1 className="mt-1 text-[32px] font-semibold tracking-tight">Upload an invoice</h1>
+        <p className="mt-1.5 max-w-xl text-[13.5px] text-ink-faint">
+          Drop a PDF or image. Claude reads the vendor, amounts, dates, and line items and lands
+          you in a draft ready to review.
         </p>
       </div>
 
@@ -24,25 +26,20 @@ export default function NewBillPage() {
 
       <div
         className="mt-5 flex items-start gap-2.5 rounded-lg px-4 py-3 text-[13px]"
-        style={{ background: "var(--brand-soft)", color: "var(--ink-2)" }}
+        style={{ background: "var(--info-soft)", color: "var(--ink-2)" }}
       >
-        <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: "var(--brand)" }} />
+        <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: "var(--info)" }} />
         <p>
-          Extraction runs as soon as the upload finishes — it usually takes 5–10 seconds.
-          You can edit anything Claude got wrong on the next screen.
+          Extraction runs as soon as the upload finishes — typically 5–10 seconds. You can edit
+          anything Claude got wrong on the next screen.
         </p>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border pt-6">
+      <div
+        className="mt-6 flex items-center justify-center border-t pt-5"
+        style={{ borderColor: "var(--rule)" }}
+      >
         <CreateManualBillLink />
-        <Link
-          href="/bills/import"
-          className="inline-flex items-center gap-1 text-[13px] text-ink-faint transition-colors hover:text-ink"
-        >
-          <FileSpreadsheet className="h-3 w-3" />
-          Or bulk-import from CSV
-          <ArrowRight className="h-3 w-3" />
-        </Link>
       </div>
     </div>
   );

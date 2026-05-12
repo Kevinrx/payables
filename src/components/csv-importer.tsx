@@ -17,6 +17,7 @@ const KNOWN_COLUMNS = [
   "currency",
   "notes",
 ] as const;
+const FORMAT_TAGS = ["CSV", "UP TO 10 MB"];
 
 type Row = {
   vendor_name: string;
@@ -82,7 +83,6 @@ export function CsvImporter() {
         const headers = parsed.meta.fields ?? [];
         const missing = REQUIRED_COLUMNS.filter((c) => !headers.includes(c));
         if (missing.length > 0) {
-          // Allow `vendor` as alias for vendor_name, `amount` for total
           const okWithAliases =
             !missing.includes("vendor_name") || headers.includes("vendor");
           const totalOk = !missing.includes("total") || headers.includes("amount");
@@ -94,11 +94,17 @@ export function CsvImporter() {
             return;
           }
         }
-        const ignored = headers.filter((h) => !KNOWN_COLUMNS.includes(h as (typeof KNOWN_COLUMNS)[number]) && h !== "vendor" && h !== "amount" && h !== "invoice_no");
+        const ignored = headers.filter(
+          (h) =>
+            !KNOWN_COLUMNS.includes(h as (typeof KNOWN_COLUMNS)[number]) &&
+            h !== "vendor" &&
+            h !== "amount" &&
+            h !== "invoice_no"
+        );
         const rows: Row[] = [];
         const errs: string[] = [];
         parsed.data.forEach((raw, i) => {
-          const r = normalizeRow(raw, i + 2); // +2 because of header + 0-index
+          const r = normalizeRow(raw, i + 2);
           if (typeof r === "string") errs.push(r);
           else rows.push(r);
         });
@@ -149,26 +155,33 @@ export function CsvImporter() {
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-card px-6 py-10 text-center transition-colors ${
-          dragOver
-            ? "border-foreground bg-muted"
-            : "border-border hover:border-border-strong"
-        }`}
+        className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-14 text-center transition-colors"
+        style={{
+          background: dragOver ? "var(--brand-soft)" : "var(--surface)",
+          borderColor: dragOver ? "var(--brand)" : "var(--rule-strong)",
+        }}
       >
         <span
-          className={`grid h-12 w-12 place-items-center rounded-full transition-colors ${
-            dragOver ? "bg-foreground text-background" : "bg-muted text-muted-foreground"
-          }`}
+          className="grid h-12 w-12 place-items-center rounded-md transition-colors"
+          style={{
+            background: dragOver ? "var(--surface)" : "var(--paper-sunken)",
+            color: dragOver ? "var(--brand)" : "var(--ink-2)",
+            border: "1px solid var(--rule)",
+          }}
         >
           <FileUp className="h-5 w-5" />
         </span>
-        <p className="mt-3 text-sm font-medium">
-          Drop a CSV here, or <span className="text-brand">browse</span>
+        <p className="mt-4 text-[15px] font-semibold tracking-tight">
+          Drag a CSV here, or click to browse
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Required columns: <code>vendor_name</code>, <code>total</code>. Optional:{" "}
-          <code>invoice_number</code>, <code>invoice_date</code>, <code>due_date</code>,{" "}
-          <code>currency</code>, <code>notes</code>.
+        <p
+          className="mt-2 text-[10.5px] uppercase tracking-[0.12em] tabular"
+          style={{
+            color: "var(--ink-fainter)",
+            fontFamily: "var(--font-geist-mono), monospace",
+          }}
+        >
+          {FORMAT_TAGS.join(" · ")}
         </p>
         <input
           type="file"
@@ -182,10 +195,15 @@ export function CsvImporter() {
       </label>
 
       {file && (
-        <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-card px-3.5 py-3">
+        <div className="surface fade-up mt-3 flex items-center justify-between px-3.5 py-3">
           <div className="min-w-0">
-            <div className="truncate text-sm font-medium">{file.name}</div>
-            <div className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</div>
+            <div className="truncate text-[13px] font-medium">{file.name}</div>
+            <div
+              className="text-[11.5px] tabular font-mono"
+              style={{ color: "var(--ink-faint)" }}
+            >
+              {(file.size / 1024).toFixed(1)} KB
+            </div>
           </div>
           <button
             type="button"
@@ -194,25 +212,33 @@ export function CsvImporter() {
               setResult(null);
               setErrors([]);
             }}
-            className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="btn btn-ghost btn-sm"
             aria-label="Remove file"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
 
       {result?.kind === "error" && (
-        <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-danger/20 bg-danger-bg/60 px-4 py-3 text-sm text-danger">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <div
+          className="mt-4 flex items-start gap-2.5 rounded-lg px-4 py-3 text-[13px]"
+          style={{ background: "var(--danger-soft)", color: "var(--danger-strong)" }}
+        >
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <p>{result.message}</p>
         </div>
       )}
 
       {errors.length > 0 && (
-        <div className="mt-4 rounded-lg border border-warning/20 bg-warning-bg/60 px-4 py-3 text-sm text-warning">
-          <div className="font-medium">{errors.length} row{errors.length === 1 ? "" : "s"} skipped:</div>
-          <ul className="mt-1 list-inside list-disc text-xs">
+        <div
+          className="mt-4 rounded-lg px-4 py-3 text-[13px]"
+          style={{ background: "var(--warn-soft, oklch(0.955 0.035 75))", color: "var(--warn-strong)" }}
+        >
+          <div className="font-medium">
+            {errors.length} row{errors.length === 1 ? "" : "s"} skipped:
+          </div>
+          <ul className="mt-1 list-inside list-disc text-[12px]">
             {errors.slice(0, 5).map((e, i) => (
               <li key={i}>{e}</li>
             ))}
@@ -222,14 +248,17 @@ export function CsvImporter() {
       )}
 
       {result?.kind === "ok" && (
-        <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div className="surface mt-4 overflow-hidden">
+          <div
+            className="flex items-center justify-between px-4 py-3"
+            style={{ borderBottom: "1px solid var(--rule)" }}
+          >
             <div>
-              <h3 className="text-sm font-medium">
+              <h3 className="text-[13.5px] font-semibold tracking-tight">
                 Preview — {result.rows.length} bill{result.rows.length === 1 ? "" : "s"} ready to import
               </h3>
               {result.ignoredColumns.length > 0 && (
-                <p className="mt-0.5 text-xs text-muted-foreground">
+                <p className="mt-0.5 text-[11.5px] text-ink-faint">
                   Ignoring unknown columns: {result.ignoredColumns.join(", ")}
                 </p>
               )}
@@ -249,29 +278,45 @@ export function CsvImporter() {
             </button>
           </div>
           <div className="max-h-96 overflow-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-muted/90 backdrop-blur">
-                <tr className="text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  <th className="px-4 py-2">Vendor</th>
-                  <th className="px-4 py-2">Invoice #</th>
-                  <th className="px-4 py-2">Due</th>
-                  <th className="px-4 py-2 text-right">Total</th>
+            <table className="w-full">
+              <thead
+                className="sticky top-0 backdrop-blur"
+                style={{ background: "var(--paper-sunken)" }}
+              >
+                <tr
+                  className="text-left"
+                  style={{ borderBottom: "1px solid var(--rule)" }}
+                >
+                  <th className="px-4 py-2 micro">Vendor</th>
+                  <th className="px-4 py-2 micro">Invoice #</th>
+                  <th className="px-4 py-2 micro">Due</th>
+                  <th className="px-4 py-2 text-right micro">Total</th>
                 </tr>
               </thead>
               <tbody>
                 {result.rows.slice(0, 50).map((r, i) => (
-                  <tr key={i} className="border-b border-border last:border-b-0">
-                    <td className="px-4 py-2 font-medium">{r.vendor_name}</td>
-                    <td className="px-4 py-2 text-muted-foreground">{r.invoice_number ?? "—"}</td>
-                    <td className="px-4 py-2 tabular text-muted-foreground">{r.due_date ?? "—"}</td>
-                    <td className="px-4 py-2 text-right tabular font-medium">
+                  <tr
+                    key={i}
+                    style={{ borderBottom: "1px solid var(--rule-faint)" }}
+                  >
+                    <td className="px-4 py-2 text-[13px] font-medium">{r.vendor_name}</td>
+                    <td className="px-4 py-2 text-[12.5px] font-mono tabular text-ink-faint">
+                      {r.invoice_number ?? "—"}
+                    </td>
+                    <td className="px-4 py-2 text-[12.5px] font-mono tabular text-ink-faint">
+                      {r.due_date ?? "—"}
+                    </td>
+                    <td className="px-4 py-2 text-right text-[13px] font-mono tabular font-medium">
                       ${r.total.toFixed(2)}
                     </td>
                   </tr>
                 ))}
                 {result.rows.length > 50 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-2 text-center text-xs text-muted-foreground">
+                    <td
+                      colSpan={4}
+                      className="px-4 py-2 text-center text-[11.5px] text-ink-faint"
+                    >
                       … {result.rows.length - 50} more rows
                     </td>
                   </tr>
