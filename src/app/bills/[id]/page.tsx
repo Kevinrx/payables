@@ -75,7 +75,7 @@ function BillBody({ bill }: { bill: BillDetail }) {
   return (
     <>
       {/* Hero band */}
-      <div className="mt-3 grid grid-cols-1 gap-6 border-b border-border pb-6 sm:grid-cols-[1fr_auto] sm:items-end">
+      <div className="mt-3 grid grid-cols-1 gap-4 border-b border-border pb-5 sm:gap-6 sm:pb-6 sm:grid-cols-[1fr_auto] sm:items-end">
         <div className="min-w-0">
           <div className="micro mb-2">
             Bill · <span className="font-mono tabular">{bill.invoiceNumber ?? "—"}</span>
@@ -89,7 +89,10 @@ function BillBody({ bill }: { bill: BillDetail }) {
             )}
           </div>
           <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
-            <h1 className="text-[36px] font-semibold tracking-tight" style={{ letterSpacing: "-0.025em" }}>
+            <h1
+              className="text-[24px] font-semibold tracking-tight sm:text-[36px]"
+              style={{ letterSpacing: "-0.025em", lineHeight: 1.1 }}
+            >
               {bill.vendor?.name ?? (bill.source === "manual" ? "Untitled bill" : "Unmatched vendor")}
             </h1>
             <StatusBadge status={isOverdue ? "overdue" : bill.status} />
@@ -132,12 +135,11 @@ function BillBody({ bill }: { bill: BillDetail }) {
           </div>
         </div>
 
-        <div className="text-right">
+        <div className="text-left sm:text-right">
           <div className="micro mb-1.5">Total due</div>
           <div
-            className="tabular font-mono"
+            className="tabular font-mono text-[34px] sm:text-[48px]"
             style={{
-              fontSize: 48,
               fontWeight: 500,
               letterSpacing: "-0.035em",
               lineHeight: 1,
@@ -193,7 +195,8 @@ function BillBody({ bill }: { bill: BillDetail }) {
                   No payments yet. Approve this bill, then schedule a payment when you're ready.
                 </p>
               ) : (
-                <table className="w-full text-[13px]">
+                <div className="overflow-x-auto -mx-[18px] px-[18px]">
+                <table className="w-full min-w-[480px] text-[13px]">
                   <thead>
                     <tr className="border-b border-border text-left">
                       <th className="pb-2"><span className="micro">Scheduled</span></th>
@@ -219,6 +222,7 @@ function BillBody({ bill }: { bill: BillDetail }) {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           </section>

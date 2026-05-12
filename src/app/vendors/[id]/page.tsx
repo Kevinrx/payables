@@ -28,9 +28,9 @@ export default async function VendorDetailPage({
 
       {/* Hero */}
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-4 min-w-0">
+        <div className="flex items-start gap-3 min-w-0 sm:gap-4">
           <span
-            className="grid h-14 w-14 flex-none place-items-center rounded-md text-[15px] font-semibold uppercase"
+            className="grid h-12 w-12 flex-none place-items-center rounded-md text-[13px] font-semibold uppercase sm:h-14 sm:w-14 sm:text-[15px]"
             style={{
               fontFamily: "var(--font-geist-mono), monospace",
               background: "var(--paper-sunken)",
@@ -42,7 +42,7 @@ export default async function VendorDetailPage({
           </span>
           <div className="min-w-0">
             <span className="micro">Vendor</span>
-            <h1 className="mt-1 truncate text-[28px] font-semibold tracking-tight">
+            <h1 className="mt-1 truncate text-[22px] font-semibold tracking-tight sm:text-[28px]">
               {data.vendor.name}
             </h1>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-ink-faint">
@@ -116,7 +116,8 @@ export default async function VendorDetailPage({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden overflow-x-auto sm:block">
             <table className="w-full">
               <thead>
                 <tr
@@ -188,6 +189,58 @@ export default async function VendorDetailPage({
               </tbody>
             </table>
           </div>
+
+          {/* Mobile cards */}
+          <ul className="divide-y sm:hidden" style={{ borderColor: "var(--rule-faint)" }}>
+            {data.bills.map((b) => {
+              const days = daysUntilDue(b.dueDate);
+              const isOverdue =
+                days !== null && days < 0 && b.status !== "paid" && b.status !== "void";
+              const billUrl = `/bills/${b.id}?from=vendor:${data.vendor.id}`;
+              return (
+                <li key={b.id}>
+                  <Link
+                    href={billUrl}
+                    className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-paper-sunken"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-[13.5px] font-medium font-mono tabular">
+                          {b.invoiceNumber ?? "—"}
+                        </span>
+                        <span className="font-mono text-[14px] font-semibold tabular whitespace-nowrap">
+                          {b.totalCents !== null ? formatMoney(b.totalCents) : "—"}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-ink-faint">
+                        <span className="tabular">Due {formatDate(b.dueDate)}</span>
+                        {days !== null && b.status !== "paid" && b.status !== "void" && (
+                          <>
+                            <span aria-hidden style={{ color: "var(--ink-fainter)" }}>·</span>
+                            <span
+                              style={{
+                                color: isOverdue ? "var(--danger)" : "var(--ink-faint)",
+                              }}
+                            >
+                              {isOverdue
+                                ? `${Math.abs(days)}d overdue`
+                                : days === 0
+                                ? "Due today"
+                                : `${days}d to due`}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <div className="mt-1.5">
+                        <StatusBadge status={isOverdue ? "overdue" : b.status} />
+                      </div>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          </>
         )}
       </div>
     </div>

@@ -35,9 +35,9 @@ export function ExpectedColumnsPanel() {
         </span>
       </button>
 
-      <div className="grid gap-3 px-4 py-3.5 sm:grid-cols-[120px_1fr]">
+      <div className="grid gap-2.5 px-4 py-3.5 sm:gap-3 sm:grid-cols-[120px_1fr]">
         <div
-          className="text-[10.5px] uppercase tracking-[0.08em] tabular pt-1.5"
+          className="text-[10.5px] uppercase tracking-[0.08em] tabular sm:pt-1.5"
           style={{
             color: "var(--danger-strong)",
             fontFamily: "var(--font-geist-mono), monospace",
@@ -50,7 +50,7 @@ export function ExpectedColumnsPanel() {
             <ColumnPill key={c} label={c} tone="required" />
           ))}
           <p
-            className="ml-auto max-w-[260px] text-right text-[11.5px]"
+            className="w-full text-[11.5px] sm:ml-auto sm:max-w-[260px] sm:w-auto sm:text-right"
             style={{ color: "var(--ink-faint)" }}
           >
             Vendor name is matched to existing vendors. Total is parsed as USD unless currency is
@@ -59,7 +59,7 @@ export function ExpectedColumnsPanel() {
         </div>
 
         <div
-          className="text-[10.5px] uppercase tracking-[0.08em] tabular pt-1.5"
+          className="text-[10.5px] uppercase tracking-[0.08em] tabular sm:pt-1.5"
           style={{
             color: "var(--ink-faint)",
             fontFamily: "var(--font-geist-mono), monospace",
@@ -74,7 +74,7 @@ export function ExpectedColumnsPanel() {
         </div>
 
         <div
-          className="text-[10.5px] uppercase tracking-[0.08em] tabular pt-1.5"
+          className="text-[10.5px] uppercase tracking-[0.08em] tabular sm:pt-1.5"
           style={{
             color: "var(--ink-faint)",
             fontFamily: "var(--font-geist-mono), monospace",

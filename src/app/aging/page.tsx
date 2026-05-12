@@ -92,8 +92,8 @@ export default async function AgingPage() {
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-7">
       <div>
-        <h1 className="text-[32px] font-semibold tracking-tight">AP Aging</h1>
-        <p className="mt-1 text-[13.5px] text-ink-faint">
+        <h1 className="text-[24px] font-semibold tracking-tight sm:text-[32px]">AP Aging</h1>
+        <p className="mt-1 text-[13px] text-ink-faint sm:text-[13.5px]">
           Outstanding bills bucketed by how overdue they are. Excludes paid and voided.
         </p>
       </div>
@@ -108,30 +108,35 @@ export default async function AgingPage() {
       {/* Overdue callout */}
       {totalOverdue > 0 && (
         <div
-          className="mt-5 flex flex-wrap items-center gap-3 rounded-xl px-4 py-3.5"
+          className="mt-5 flex flex-col gap-3 rounded-xl px-4 py-3.5 sm:flex-row sm:flex-wrap sm:items-center"
           style={{ background: "var(--danger-soft)" }}
         >
-          <span
-            className="grid h-9 w-9 place-items-center rounded-md shrink-0"
-            style={{ background: "var(--danger-strong)", color: "var(--paper)" }}
-          >
-            <AlertTriangle className="h-4 w-4" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-[18px] font-mono tabular font-semibold" style={{ color: "var(--danger-strong)" }}>
-              {formatMoney(totalOverdue)} <span className="font-sans">overdue</span>
-            </div>
-            <div className="text-[12.5px]" style={{ color: "var(--ink-2)" }}>
-              across {overdueVendorCount} {overdueVendorCount === 1 ? "vendor" : "vendors"}
-              {oldestDays > 0 && ` · oldest is ${oldestDays} ${oldestDays === 1 ? "day" : "days"} past due`}
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <span
+              className="grid h-9 w-9 place-items-center rounded-md shrink-0"
+              style={{ background: "var(--danger-strong)", color: "var(--paper)" }}
+            >
+              <AlertTriangle className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div
+                className="text-[16px] font-mono tabular font-semibold sm:text-[18px]"
+                style={{ color: "var(--danger-strong)" }}
+              >
+                {formatMoney(totalOverdue)} <span className="font-sans">overdue</span>
+              </div>
+              <div className="text-[12px] sm:text-[12.5px]" style={{ color: "var(--ink-2)" }}>
+                across {overdueVendorCount} {overdueVendorCount === 1 ? "vendor" : "vendors"}
+                {oldestDays > 0 && ` · oldest is ${oldestDays} ${oldestDays === 1 ? "day" : "days"} past due`}
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <a href={csvHref} download="aging.csv" className="btn btn-secondary">
+          <div className="grid grid-cols-2 items-center gap-2 sm:flex sm:w-auto">
+            <a href={csvHref} download="aging.csv" className="btn btn-secondary justify-center">
               <Download className="h-3.5 w-3.5" />
               Export CSV
             </a>
-            <Link href="/bills?status=overdue" className="btn btn-primary">
+            <Link href="/bills?status=overdue" className="btn btn-primary justify-center">
               Review overdue
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>

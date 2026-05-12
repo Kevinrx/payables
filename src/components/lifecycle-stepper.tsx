@@ -17,8 +17,9 @@ export function LifecycleStepper({
   actions: React.ReactNode;
 }) {
   const stepIdx = STEPS.findIndex((s) => s.id === status);
+  const activeStep = STEPS[stepIdx];
   return (
-    <div className="surface flex flex-col gap-4 px-4 py-3.5 lg:flex-row lg:items-center lg:justify-between">
+    <div className="surface flex flex-col gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-3.5 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex items-center flex-wrap gap-y-2 min-w-0">
         {STEPS.map((s, i) => {
           const done = i < stepIdx;
@@ -37,8 +38,9 @@ export function LifecycleStepper({
                 >
                   {done ? <Check className="h-3 w-3" strokeWidth={2.5} /> : i + 1}
                 </span>
+                {/* Inline label hidden on phones; replaced by a single active-step label below */}
                 <span
-                  className="text-[12.5px] whitespace-nowrap"
+                  className="hidden text-[12.5px] whitespace-nowrap sm:inline"
                   style={{
                     color: active ? "var(--ink)" : done ? "var(--ink-2)" : "var(--ink-fainter)",
                     fontWeight: active ? 600 : 500,
@@ -50,13 +52,22 @@ export function LifecycleStepper({
               </div>
               {i < STEPS.length - 1 && (
                 <span
-                  className="mx-2 h-px w-5 flex-none"
+                  className="mx-1.5 h-px w-3 flex-none sm:mx-2 sm:w-5"
                   style={{ background: i < stepIdx ? "var(--ink)" : "var(--rule)" }}
                 />
               )}
             </div>
           );
         })}
+        {/* Compact active-step label for mobile */}
+        {activeStep && (
+          <span
+            className="ml-3 inline text-[12.5px] font-semibold tracking-tight sm:hidden"
+            style={{ color: "var(--ink)" }}
+          >
+            {activeStep.label}
+          </span>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:flex-none">{actions}</div>

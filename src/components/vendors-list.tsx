@@ -68,28 +68,38 @@ export function VendorsList({ rows }: { rows: VendorRow[] }) {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr
-                  className="text-left"
-                  style={{ borderBottom: "1px solid var(--rule)", background: "var(--paper-sunken)" }}
-                >
-                  <th className="px-4 py-2.5 micro">Vendor</th>
-                  <th className="px-4 py-2.5 text-center micro">Bills</th>
-                  <th className="px-4 py-2.5 text-right micro">Outstanding</th>
-                  <th className="px-4 py-2.5 text-right micro">Paid (lifetime)</th>
-                  <th className="px-4 py-2.5 micro">Method</th>
-                  <th className="px-4 py-2.5" />
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((v) => (
-                  <VendorRowItem key={v.id} v={v} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* Desktop table */}
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full">
+                <thead>
+                  <tr
+                    className="text-left"
+                    style={{ borderBottom: "1px solid var(--rule)", background: "var(--paper-sunken)" }}
+                  >
+                    <th className="px-4 py-2.5 micro">Vendor</th>
+                    <th className="px-4 py-2.5 text-center micro">Bills</th>
+                    <th className="px-4 py-2.5 text-right micro">Outstanding</th>
+                    <th className="px-4 py-2.5 text-right micro">Paid (lifetime)</th>
+                    <th className="px-4 py-2.5 micro">Method</th>
+                    <th className="px-4 py-2.5" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((v) => (
+                    <VendorRowItem key={v.id} v={v} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <ul className="divide-y sm:hidden" style={{ borderColor: "var(--rule-faint)" }}>
+              {filtered.map((v) => (
+                <VendorMobileCard key={v.id} v={v} />
+              ))}
+            </ul>
+          </>
         )}
       </div>
 
@@ -176,6 +186,73 @@ function VendorRowItem({ v }: { v: VendorRow }) {
         </span>
       </td>
     </tr>
+  );
+}
+
+function VendorMobileCard({ v }: { v: VendorRow }) {
+  const initials = getInitials(v.name);
+  const hasOutstanding = v.outstandingCents > 0;
+  const detailUrl = `/vendors/${v.id}`;
+  return (
+    <li>
+      <Link
+        href={detailUrl}
+        aria-label={`Open ${v.name}`}
+        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-paper-sunken"
+      >
+        <span
+          className="grid h-10 w-10 flex-none place-items-center rounded-md text-[12px] font-semibold uppercase"
+          style={{
+            fontFamily: "var(--font-geist-mono), monospace",
+            background: "var(--paper-sunken)",
+            color: "var(--ink-2)",
+            border: "1px solid var(--rule)",
+          }}
+        >
+          {initials}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <span className="truncate text-[14px] font-medium">{v.name}</span>
+            <span
+              className="font-mono text-[13.5px] font-semibold tabular whitespace-nowrap"
+              style={{ color: hasOutstanding ? "var(--ink)" : "var(--ink-fainter)" }}
+            >
+              {hasOutstanding ? formatMoney(v.outstandingCents) : "—"}
+            </span>
+          </div>
+          <div className="mt-0.5 flex items-center justify-between gap-3 text-[11.5px] text-ink-faint">
+            <span className="truncate">
+              {v.email ?? `${v.billCount} ${v.billCount === 1 ? "bill" : "bills"}`}
+            </span>
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              {v.defaultPaymentMethod && (
+                <span
+                  className="rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-[0.08em]"
+                  style={{
+                    fontFamily: "var(--font-geist-mono), monospace",
+                    background: "var(--paper-sunken)",
+                    color: "var(--ink-2)",
+                    border: "1px solid var(--rule)",
+                  }}
+                >
+                  {v.defaultPaymentMethod}
+                </span>
+              )}
+              {v.email && (
+                <span className="font-mono tabular">
+                  {v.billCount} {v.billCount === 1 ? "bill" : "bills"}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <ChevronRight
+          className="h-4 w-4 flex-none"
+          style={{ color: "var(--ink-fainter)" }}
+        />
+      </Link>
+    </li>
   );
 }
 

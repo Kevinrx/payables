@@ -109,30 +109,32 @@ export function BillsTable({ rows }: { rows: Row[] }) {
   return (
     <div>
       {/* Filter row */}
-      <div className="flex flex-wrap items-center gap-2.5">
-        <div className="relative max-w-[380px] flex-1">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative w-full sm:max-w-[380px] sm:flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-fainter" />
           <input
             type="text"
             placeholder="Search vendor or invoice number…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="input pl-8"
+            className="input w-full pl-8"
           />
         </div>
 
-        <FilterChips value={statusFilter} onChange={setStatusFilter} />
+        <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 hide-scroll sm:mx-0 sm:px-0 sm:overflow-visible">
+          <FilterChips value={statusFilter} onChange={setStatusFilter} />
+        </div>
 
-        <div className="flex-1" />
-        <div className="text-xs text-ink-faint tabular">
+        <div className="hidden flex-1 sm:block" />
+        <div className="text-xs text-ink-faint tabular sm:ml-0">
           {filtered.length} of {rows.length}
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table — desktop layout */}
       <div className="surface mt-3.5 overflow-hidden">
         <div
-          className="grid items-center gap-4 border-b border-border bg-paper-sunken px-[18px] py-2.5"
+          className="hidden items-center gap-4 border-b border-border bg-paper-sunken px-[18px] py-2.5 sm:grid"
           style={{ gridTemplateColumns: "minmax(0, 1.6fr) 1fr 1.2fr 1fr auto 28px" }}
         >
           <HeaderCell active={sortKey === "vendor"} dir={sortDir} onClick={() => toggleSort("vendor")}>
@@ -228,11 +230,24 @@ function BillRow({ row }: { row: Row }) {
   const isDueSoon =
     days !== null && days >= 0 && days <= 7 && row.status !== "paid" && row.status !== "void";
 
+  const dueLabel =
+    days !== null && row.status !== "paid" && row.status !== "void"
+      ? isOverdue
+        ? `${Math.abs(days)}d overdue`
+        : days === 0
+        ? "Due today"
+        : `in ${days}d`
+      : null;
+  const dueColor = isOverdue
+    ? "var(--danger-strong)"
+    : isDueSoon
+    ? "var(--warn-strong)"
+    : "var(--ink-fainter)";
+
   return (
     <Link
       href={`/bills/${row.id}`}
-      className="group relative grid items-center gap-4 border-b border-border bg-surface px-[18px] py-3.5 transition-colors last:border-b-0 hover:bg-surface-hover"
-      style={{ gridTemplateColumns: "minmax(0, 1.6fr) 1fr 1.2fr 1fr auto 28px" }}
+      className="group relative block border-b border-border bg-surface transition-colors last:border-b-0 hover:bg-surface-hover"
     >
       {/* Overdue accent stripe — architecture, not decoration */}
       {isOverdue && (
@@ -243,66 +258,105 @@ function BillRow({ row }: { row: Row }) {
         />
       )}
 
-      <div className="min-w-0">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span
-            className={cn(
-              "truncate text-[14px] font-medium tracking-tight",
-              row.vendorName ? "text-ink" : "text-ink-faint"
-            )}
-          >
-            {row.vendorName ?? "No vendor"}
-          </span>
-          {row.parentBillId && (
+      {/* Desktop layout */}
+      <div
+        className="hidden items-center gap-4 px-[18px] py-3.5 sm:grid"
+        style={{ gridTemplateColumns: "minmax(0, 1.6fr) 1fr 1.2fr 1fr auto 28px" }}
+      >
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
             <span
-              title="Recurring bill"
-              className="grid h-4 w-4 place-items-center rounded bg-paper-sunken text-ink-faint flex-none"
+              className={cn(
+                "truncate text-[14px] font-medium tracking-tight",
+                row.vendorName ? "text-ink" : "text-ink-faint"
+              )}
             >
-              <Repeat className="h-2.5 w-2.5" />
+              {row.vendorName ?? "No vendor"}
             </span>
+            {row.parentBillId && (
+              <span
+                title="Recurring bill"
+                className="grid h-4 w-4 place-items-center rounded bg-paper-sunken text-ink-faint flex-none"
+              >
+                <Repeat className="h-2.5 w-2.5" />
+              </span>
+            )}
+          </div>
+          {row.notes && (
+            <div className="mt-0.5 truncate text-xs text-ink-faint">{row.notes}</div>
           )}
         </div>
-        {row.notes && (
-          <div className="mt-0.5 truncate text-xs text-ink-faint">{row.notes}</div>
-        )}
+
+        <div className="font-mono text-xs text-ink-faint tabular">
+          {row.invoiceNumber ?? "—"}
+        </div>
+
+        <div>
+          <div className="text-[13px] tabular">{formatDate(row.dueDate)}</div>
+          {dueLabel && (
+            <div
+              className="mt-0.5 font-mono text-[11.5px] tracking-tight"
+              style={{ color: dueColor }}
+            >
+              {dueLabel}
+            </div>
+          )}
+        </div>
+
+        <div className="text-right font-mono text-[14px] font-medium tabular tracking-tight">
+          {formatMoney(row.totalCents, row.currency)}
+        </div>
+
+        <div>
+          <StatusBadge status={isOverdue ? "overdue" : row.status} />
+        </div>
+
+        <div className="grid place-items-center text-ink-faint opacity-0 transition-opacity group-hover:opacity-100">
+          <ChevronRight className="h-3.5 w-3.5" />
+        </div>
       </div>
 
-      <div className="font-mono text-xs text-ink-faint tabular">
-        {row.invoiceNumber ?? "—"}
-      </div>
-
-      <div>
-        <div className="text-[13px] tabular">{formatDate(row.dueDate)}</div>
-        {days !== null && row.status !== "paid" && row.status !== "void" && (
-          <div
-            className="mt-0.5 font-mono text-[11.5px] tracking-tight"
-            style={{
-              color: isOverdue
-                ? "var(--danger-strong)"
-                : isDueSoon
-                ? "var(--warn-strong)"
-                : "var(--ink-fainter)",
-            }}
-          >
-            {isOverdue
-              ? `${Math.abs(days)}d overdue`
-              : days === 0
-              ? "Due today"
-              : `in ${days}d`}
+      {/* Mobile layout */}
+      <div className="flex items-start gap-3 px-4 py-3 sm:hidden">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span
+              className={cn(
+                "truncate text-[14px] font-medium tracking-tight",
+                row.vendorName ? "text-ink" : "text-ink-faint"
+              )}
+            >
+              {row.vendorName ?? "No vendor"}
+            </span>
+            {row.parentBillId && (
+              <span
+                title="Recurring bill"
+                className="grid h-4 w-4 flex-none place-items-center rounded bg-paper-sunken text-ink-faint"
+              >
+                <Repeat className="h-2.5 w-2.5" />
+              </span>
+            )}
           </div>
-        )}
-      </div>
-
-      <div className="text-right font-mono text-[14px] font-medium tabular tracking-tight">
-        {formatMoney(row.totalCents, row.currency)}
-      </div>
-
-      <div>
-        <StatusBadge status={isOverdue ? "overdue" : row.status} />
-      </div>
-
-      <div className="grid place-items-center text-ink-faint opacity-0 transition-opacity group-hover:opacity-100">
-        <ChevronRight className="h-3.5 w-3.5" />
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] tabular font-mono text-ink-faint">
+            {row.invoiceNumber && <span>{row.invoiceNumber}</span>}
+            {row.invoiceNumber && (
+              <span aria-hidden style={{ color: "var(--ink-fainter)" }}>·</span>
+            )}
+            <span>{formatDate(row.dueDate)}</span>
+            {dueLabel && (
+              <>
+                <span aria-hidden style={{ color: "var(--ink-fainter)" }}>·</span>
+                <span style={{ color: dueColor }}>{dueLabel}</span>
+              </>
+            )}
+          </div>
+          <div className="mt-1.5">
+            <StatusBadge status={isOverdue ? "overdue" : row.status} />
+          </div>
+        </div>
+        <div className="text-right font-mono text-[15px] font-medium tabular tracking-tight whitespace-nowrap">
+          {formatMoney(row.totalCents, row.currency)}
+        </div>
       </div>
     </Link>
   );
