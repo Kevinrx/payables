@@ -34,10 +34,6 @@ export function AppHeader() {
           </nav>
         </div>
         <div className="flex items-center gap-3">
-          <div className="hidden items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground sm:flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-success" />
-            Demo workspace
-          </div>
           <Link
             href="/bills/new"
             className="inline-flex h-8 items-center rounded-md bg-foreground px-3 text-sm font-medium text-background transition-colors hover:bg-foreground/85"
