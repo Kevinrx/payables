@@ -3,14 +3,13 @@
 A small, opinionated payables product inspired by [Ramp Bill Pay](https://support.ramp.com/hc/en-us/articles/27579228841875-Managing-bills-and-payments-on-Bill-Pay). Built as a takehome.
 
 🔗 **Live demo:** https://trashlab-payables.vercel.app
-🔗 **Source:** https://github.com/Kevinrx/trashlab-payables
 
 > **The bet:** the spine of any AP product is one loop — *invoice arrives → becomes a bill → gets reviewed and approved → gets paid → shows up in aging*. Everything else (CSV upload, AP email forwarding, recurring bills, line-item splits, multi-approver workflows, GL coding) is a variation on that loop. So I built the spine end-to-end with one real magical feature — AI extraction — and called the rest scope.
 
 ## Try it in 30 seconds
 
 1. Open https://trashlab-payables.vercel.app → click around the seeded bills, try filtering by status
-2. Click **New bill** → upload [`samples/01-acme-cloud.pdf`](./samples/01-acme-cloud.pdf) (or any invoice you have)
+2. Click **New bill** → upload any PDF from the [`samples/`](./samples) folder (or your own invoice)
 3. Watch the form populate from Claude vision in ~6 seconds — edit anything, approve, schedule a payment, mark paid
 4. Open **Aging** in the nav to see overdue bills bucketed by vendor
 
@@ -32,7 +31,6 @@ A small, opinionated payables product inspired by [Ramp Bill Pay](https://suppor
 - [The model contract](#the-model-contract)
 - [Production hardening I deliberately skipped](#production-hardening-i-deliberately-skipped)
 - [What I'd build next](#what-id-build-next)
-- [Honest things I'd change with another day](#honest-things-id-change-with-another-day)
 
 ---
 
@@ -384,18 +382,12 @@ After the model returns, we run the args through `ExtractedInvoiceSchema.safePar
 
 ## Production hardening I deliberately skipped
 
-This is a demo. Before this product touches a real customer, the following needs to happen — and not piecemeal, since several depend on each other:
+Operational/security gaps a real product would need to close (separate from product-feature scope):
 
-- **Auth.** Right now `/bills/[id]` is publicly accessible to anyone with the bill ID. Bill IDs are UUIDs (unguessable), but that's not a security model. Need session-based auth scoped to `org_id`, with the `WHERE org_id = ...` filter applied on every query.
-- **Private file storage + signed URLs.** Today, uploaded invoices live in a *public* Vercel Blob store — the URLs include unguessable random suffixes, but the files are world-readable to anyone who sees the URL (which can leak via referer, logs, or a shared bill link). The right setup is a *private* Blob store, with the server generating short-lived signed URLs in `getBillById` and refreshing them per request. **Doing this without auth first would be cosmetic** — anyone who could fetch the bill page would still get a fresh signed URL. Auth must come first.
-- **CSRF protection on server actions.** Next.js server actions have built-in protections, but a real product should also enforce origin checks for the upload endpoint.
-- **Rate limiting on the upload endpoint.** A single Anthropic vision call costs ~1¢; without limits, an attacker could run up an API bill quickly.
-- **PII redaction in logs.** The `extracted_json` column stores raw model output including vendor info; logs should never include it.
-- **File scanning.** Real AP products run uploads through ClamAV-equivalent before storing. Skipped here.
-- **Audit log immutability.** `bill_events` is append-only by convention but not by constraint. A real audit log would be in a separate, write-only table with a hash chain.
-- **Backup + retention policy.** Neon has PITR but the storage layer doesn't. Files should have a retention/legal hold story.
-
-None of this is hard individually, but doing them in the wrong order produces false security. The first step is always auth.
+- **Auth must come first.** `/bills/[id]` is currently open to anyone with the UUID. Session-based auth scoped to `org_id` is the prerequisite for everything else here.
+- **Private file storage + signed URLs.** Invoices today live in a *public* Vercel Blob store. Real product: private store, short-lived signed URLs per request. **Cosmetic without auth**, so auth ships first.
+- **Rate limiting on upload.** Each Anthropic vision call costs ~1¢. Without a per-IP/per-user limit, the API quota is a DoS vector.
+- **Audit log immutability + file scanning + PII redaction in logs.** `bill_events` is append-only by convention but not constraint; uploads aren't scanned; raw model output (including vendor info) can land in logs. Each is a half-day fix in the right order.
 
 ## What I'd build next
 
@@ -410,16 +402,3 @@ In rough order of impact:
 7. **Real payment rails** — Modern Treasury for ACH, Increase for checks, Stripe for cards. Becomes async with payment status callbacks.
 8. **Server-action integration tests** — the Vitest suite today covers pure helpers and an HTTP smoke script covers route liveness, but the mutation paths (approve, schedule, mark paid, extract, repeat, import) deserve real DB tests against a throwaway Postgres.
 
-## Honest things I'd change with another day
-
-- The line-items editor doesn't enforce that line totals == subtotal. Today it shows a small ✓ when they match and a warning when they don't. I'd add a one-click "set subtotal from line items."
-- Payments are 1:1 with bills today (one bill, one or more payments). A real product allows split payments and partial payments. Easy schema change, more UI.
-- I serve uploaded files inline via `<object>` for PDFs. On some browsers this triggers a download instead. A real product would render PDFs to images server-side or use PDF.js.
-- Number inputs respect the OS locale, so users on comma-decimal systems see "1325,48" instead of "1325.48". A real product would use locale-aware text inputs with explicit parsing.
-- No keyboard shortcuts (`j`/`k` between bills, `e` to edit, `a` to approve). Quick add.
-- The "Demo workspace" pill could click through to a (mocked) workspace switcher. It's a single useful affordance away from feeling multi-tenant-ready.
-- The vendor field in the editor is a plain text input with server-side dedup. A combobox suggesting existing vendors as you type would be more familiar.
-
----
-
-No Storybook, no monorepo, no `shadcn/ui`. Vitest covers the deterministic helpers and a smoke script covers route liveness; broader integration tests are a documented gap. Just the shape of the thing.
