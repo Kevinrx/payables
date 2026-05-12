@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowUpDown,
   ChevronRight,
@@ -40,8 +41,17 @@ const STATUS_FILTERS: { id: "all" | BillStatus | "overdue" | "due_soon"; label: 
   { id: "paid", label: "Paid" },
 ];
 
+type FilterId = (typeof STATUS_FILTERS)[number]["id"];
+
+const FILTER_IDS = new Set<FilterId>(STATUS_FILTERS.map((s) => s.id));
+
 export function BillsTable({ rows }: { rows: Row[] }) {
-  const [statusFilter, setStatusFilter] = useState<typeof STATUS_FILTERS[number]["id"]>("all");
+  const searchParams = useSearchParams();
+  const initialStatus: FilterId = (() => {
+    const q = searchParams.get("status");
+    return q && FILTER_IDS.has(q as FilterId) ? (q as FilterId) : "all";
+  })();
+  const [statusFilter, setStatusFilter] = useState<FilterId>(initialStatus);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");

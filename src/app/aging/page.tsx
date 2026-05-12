@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { sql } from "drizzle-orm";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ArrowRight, Download } from "lucide-react";
 import { db } from "@/db";
 import { getDemoOrgId } from "@/db/queries";
 import { formatMoney } from "@/lib/utils";
@@ -17,7 +17,10 @@ type Row = {
   bucket_90_plus: string;
   bill_count: string;
   total_cents: string;
+  max_days_overdue: string;
 };
+
+type Tone = "neutral" | "warning" | "danger";
 
 export default async function AgingPage() {
   const orgId = await getDemoOrgId();
@@ -43,7 +46,8 @@ export default async function AgingPage() {
         WHEN b.due_date < CURRENT_DATE - INTERVAL '90 days'
         THEN b.total_cents ELSE 0 END), 0) AS bucket_90_plus,
       COUNT(b.id) AS bill_count,
-      COALESCE(SUM(b.total_cents), 0) AS total_cents
+      COALESCE(SUM(b.total_cents), 0) AS total_cents,
+      COALESCE(MAX(CASE WHEN b.due_date < CURRENT_DATE THEN (CURRENT_DATE - b.due_date)::int ELSE 0 END), 0) AS max_days_overdue
     FROM bills b
     JOIN vendors v ON v.id = b.vendor_id
     WHERE b.org_id = ${orgId}
@@ -69,37 +73,69 @@ export default async function AgingPage() {
   );
 
   const totalOverdue = totals.b1_30 + totals.b31_60 + totals.b61_90 + totals.b90;
+  const overdueVendorCount = rows.filter(
+    (r) =>
+      Number(r.bucket_1_30) + Number(r.bucket_31_60) + Number(r.bucket_61_90) + Number(r.bucket_90_plus) > 0
+  ).length;
+  const oldestDays = rows.reduce((m, r) => Math.max(m, Number(r.max_days_overdue)), 0);
+
+  const csvHref = buildCsvHref(rows);
+
+  const cards: { label: string; cents: number; tone: Tone }[] = [
+    { label: "Current",     cents: totals.current, tone: "neutral" },
+    { label: "1–30 days",   cents: totals.b1_30,   tone: "warning" },
+    { label: "31–60 days",  cents: totals.b31_60,  tone: "warning" },
+    { label: "61–90 days",  cents: totals.b61_90,  tone: "danger"  },
+    { label: "90+ days",    cents: totals.b90,     tone: "danger"  },
+  ];
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-7">
       <div>
-        <span className="micro">A/P · Aging report</span>
-        <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Aging</h1>
-        <p className="mt-1 text-[13px] text-ink-faint">
-          Outstanding bills bucketed by how overdue they are. Excludes paid and voided bills.
+        <h1 className="text-[32px] font-semibold tracking-tight">AP Aging</h1>
+        <p className="mt-1 text-[13.5px] text-ink-faint">
+          Outstanding bills bucketed by how overdue they are. Excludes paid and voided.
         </p>
       </div>
 
-      {/* Top-line summary */}
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <SummaryCard label="Total outstanding" cents={totals.grand} count={totals.count} emphasize />
-        <SummaryCard label="Current" cents={totals.current} tone="neutral" />
-        <SummaryCard label="1–30 days" cents={totals.b1_30} tone="warning" />
-        <SummaryCard label="31–60 days" cents={totals.b31_60} tone="warning" />
-        <SummaryCard label="61–90 days" cents={totals.b61_90} tone="danger" />
-        <SummaryCard label="90+ days" cents={totals.b90} tone="danger" />
+      {/* Bucket cards */}
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {cards.map((c) => (
+          <BucketCard key={c.label} {...c} grand={totals.grand} />
+        ))}
       </div>
 
+      {/* Overdue callout */}
       {totalOverdue > 0 && (
         <div
-          className="mt-4 flex items-center gap-2.5 rounded-lg px-4 py-2.5 text-[13px]"
-          style={{ background: "var(--danger-soft)", color: "var(--danger-strong)" }}
+          className="mt-5 flex flex-wrap items-center gap-3 rounded-xl px-4 py-3.5"
+          style={{ background: "var(--danger-soft)" }}
         >
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-          <span className="font-semibold tabular">{formatMoney(totalOverdue)} overdue</span>
-          <span style={{ color: "var(--ink-2)" }}>
-            across {totals.count} {totals.count === 1 ? "bill" : "bills"} from {rows.length} {rows.length === 1 ? "vendor" : "vendors"}
+          <span
+            className="grid h-9 w-9 place-items-center rounded-md shrink-0"
+            style={{ background: "var(--danger-strong)", color: "var(--paper)" }}
+          >
+            <AlertTriangle className="h-4 w-4" />
           </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[18px] font-mono tabular font-semibold" style={{ color: "var(--danger-strong)" }}>
+              {formatMoney(totalOverdue)} <span className="font-sans">overdue</span>
+            </div>
+            <div className="text-[12.5px]" style={{ color: "var(--ink-2)" }}>
+              across {overdueVendorCount} {overdueVendorCount === 1 ? "vendor" : "vendors"}
+              {oldestDays > 0 && ` · oldest is ${oldestDays} ${oldestDays === 1 ? "day" : "days"} past due`}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <a href={csvHref} download="aging.csv" className="btn btn-secondary">
+              <Download className="h-3.5 w-3.5" />
+              Export CSV
+            </a>
+            <Link href="/bills?status=overdue" className="btn btn-primary">
+              Review overdue
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
       )}
 
@@ -157,7 +193,6 @@ export default async function AgingPage() {
                     </td>
                   </tr>
                 ))}
-                {/* Totals row */}
                 <tr
                   className="font-medium"
                   style={{ borderTop: "2px solid var(--rule-strong)", background: "var(--paper-sunken)" }}
@@ -181,61 +216,62 @@ export default async function AgingPage() {
   );
 }
 
-function SummaryCard({
+function toneColor(tone: Tone, isZero: boolean) {
+  if (isZero) return "var(--ink-fainter)";
+  if (tone === "danger") return "var(--danger)";
+  if (tone === "warning") return "var(--warn-strong)";
+  return "var(--ink)";
+}
+
+function BucketCard({
   label,
   cents,
-  count,
-  tone = "neutral",
-  emphasize,
+  tone,
+  grand,
 }: {
   label: string;
   cents: number;
-  count?: number;
-  tone?: "neutral" | "warning" | "danger";
-  emphasize?: boolean;
+  tone: Tone;
+  grand: number;
 }) {
-  const valueColor =
-    tone === "danger"
-      ? "var(--danger)"
-      : tone === "warning"
-      ? "var(--warn-strong, var(--ink))"
-      : "var(--ink)";
+  const isZero = cents === 0;
+  const pct = grand > 0 ? (cents / grand) * 100 : 0;
+  const color = toneColor(tone, isZero);
   return (
-    <div
-      className="surface px-4 py-3.5"
-      style={emphasize ? { borderColor: "var(--ink)" } : undefined}
-    >
+    <div className="surface px-4 py-3.5">
       <div className="micro">{label}</div>
       <div
-        className="mt-2 text-[19px] font-semibold tabular tracking-tight font-mono"
-        style={{ color: emphasize ? "var(--ink)" : valueColor }}
+        className="mt-2 text-[26px] leading-none font-semibold tabular tracking-tight font-mono"
+        style={{ color }}
       >
         {formatMoney(cents)}
       </div>
-      {count !== undefined && (
-        <div className="mt-0.5 text-[11.5px] text-ink-faint">
-          {count} {count === 1 ? "bill" : "bills"}
-        </div>
-      )}
+      <div
+        className="mt-3 h-1 rounded-full overflow-hidden"
+        style={{ background: "var(--rule-faint)" }}
+        aria-hidden
+      >
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${Math.min(pct, 100)}%`, background: isZero ? "transparent" : color }}
+        />
+      </div>
+      <div className="mt-2 text-[10.5px] uppercase tracking-[0.08em] tabular" style={{ color: "var(--ink-faint)" }}>
+        {pct.toFixed(1)}% of total
+      </div>
     </div>
   );
 }
 
 function BucketCell({
   cents,
-  tone,
+  tone = "neutral",
 }: {
   cents: number;
-  tone?: "warning" | "danger";
+  tone?: Tone;
 }) {
   const isZero = cents === 0;
-  const color = isZero
-    ? "var(--ink-fainter)"
-    : tone === "danger"
-    ? "var(--danger)"
-    : tone === "warning"
-    ? "var(--warn-strong, var(--ink-2))"
-    : "var(--ink)";
+  const color = toneColor(tone, isZero);
   return (
     <td
       className="px-4 py-3 text-right text-[13px] font-mono tabular"
@@ -247,4 +283,38 @@ function BucketCell({
       {isZero ? "—" : formatMoney(cents)}
     </td>
   );
+}
+
+function buildCsvHref(rows: Row[]): string {
+  const header = [
+    "vendor",
+    "bill_count",
+    "current",
+    "1_30_days",
+    "31_60_days",
+    "61_90_days",
+    "90_plus_days",
+    "total",
+  ];
+  const lines = rows.map((r) => [
+    csvEscape(r.vendor_name),
+    r.bill_count,
+    centsToDollars(r.current_cents),
+    centsToDollars(r.bucket_1_30),
+    centsToDollars(r.bucket_31_60),
+    centsToDollars(r.bucket_61_90),
+    centsToDollars(r.bucket_90_plus),
+    centsToDollars(r.total_cents),
+  ].join(","));
+  const body = [header.join(","), ...lines].join("\n");
+  return `data:text/csv;charset=utf-8,${encodeURIComponent(body)}`;
+}
+
+function csvEscape(s: string): string {
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function centsToDollars(cents: string): string {
+  return (Number(cents) / 100).toFixed(2);
 }
