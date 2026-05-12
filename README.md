@@ -210,26 +210,42 @@ src/
 │       ├── actions.ts          ← createVendor server action
 │       ├── loading.tsx
 │       └── [id]/page.tsx       ← drill-in: stats + scoped bills table
-├── components/                 ← all client components, lowercase-with-dashes
+├── components/                 ← all client components, lowercase-with-dashes, flat
+│   │  (shared primitives)
 │   ├── app-header.tsx          ← sticky nav: Bills · Aging · Vendors
-│   ├── bills-table.tsx         ← client: filter/search/sort, mobile card layout
-│   ├── lifecycle-stepper.tsx   ← Draft → Review → Approved → Scheduled → Paid stepper
+│   ├── status-badge.tsx        ← color-coded status pill (draft/review/approved/…)
+│   ├── vendor-avatar.tsx       ← monogram avatar (sm/md/lg), driven by getInitials()
+│   ├── method-pill.tsx         ← uppercase mono pill for payment methods (ach/check/card)
+│   │  (bills list)
+│   ├── bills-table.tsx         ← filter/search/sort shell around BillRow
+│   ├── bill-row.tsx            ← one bill row, desktop + mobile layouts, overdue stripe
+│   ├── bills-empty-state.tsx   ← empty/filtered-empty state for /bills
 │   ├── summary-cards.tsx       ← 4 dashboard cards w/ aging-mix sparkline on Outstanding
-│   ├── status-badge.tsx        ← color-coded status pill
-│   ├── bill-actions.tsx        ← Approve / Schedule / MarkPaid buttons
+│   │  (bill detail)
+│   ├── bill-hero.tsx           ← detail-page hero band: title, status, totals, meta
+│   ├── bill-actions.tsx        ← Approve / Schedule / MarkPaid / Repeat buttons
 │   ├── bill-editor.tsx         ← inline editable form for draft/needs_review bills
-│   ├── bill-event-timeline.tsx ← vertical timeline for activity
-│   ├── create-manual-bill-link.tsx ← surface card: creates empty draft, redirects to editor
+│   ├── bill-readonly.tsx       ← read-only details + line-items tables (paid/approved/etc.)
+│   ├── bill-event-timeline.tsx ← vertical activity timeline
+│   ├── lifecycle-stepper.tsx   ← Draft → Review → Approved → Scheduled → Paid stepper
+│   ├── payments-table.tsx      ← scheduled/paid rows for a single bill
+│   ├── category-breakdown.tsx  ← GL allocation aggregated across line-item splits
+│   ├── file-preview.tsx        ← <embed>/<img> for PDF or image invoices
+│   ├── extraction-pending.tsx  ← skeleton + Claude trigger on first load
+│   │  (aging)
+│   ├── aging-bucket.tsx        ← BucketCard + BucketCell + tone palette
+│   │  (upload / import)
+│   ├── file-uploader.tsx       ← drag-and-drop with mime/size validation
 │   ├── csv-importer.tsx        ← drag-drop CSV, parse + preview + bulk import
 │   ├── expected-columns-panel.tsx ← required/optional/aliases pills + Show template
-│   ├── extraction-pending.tsx  ← skeleton + Claude trigger on first load
-│   ├── file-preview.tsx        ← <embed>/<img> for PDF or image invoices
-│   ├── file-uploader.tsx       ← drag-and-drop with mime/size validation
+│   ├── create-manual-bill-link.tsx ← surface card: creates empty draft, redirects to editor
+│   │  (vendors)
+│   ├── vendors-list.tsx        ← search + dialog launcher; desktop table + mobile cards
+│   │  (dialogs)
 │   ├── line-item-splits-dialog.tsx ← per-line allocation across categories (must sum to 100%)
 │   ├── new-vendor-dialog.tsx   ← modal: name + email + default payment method
 │   ├── repeat-bill-dialog.tsx  ← modal: frequency + count, generates child bills
-│   ├── schedule-payment-dialog.tsx ← modal: date, method, amount
-│   └── vendors-list.tsx        ← client: search + dialog launcher; desktop table + mobile cards
+│   └── schedule-payment-dialog.tsx ← modal: date, method, amount
 ├── db/
 │   ├── schema.ts               ← Drizzle schema: 6 tables, enums, indexes
 │   ├── index.ts                ← single Drizzle client (HMR-safe)
@@ -240,7 +256,9 @@ src/
     ├── categories.test.ts      ← Vitest unit tests for split allocation
     ├── extract.ts              ← Anthropic SDK call + Zod validation
     ├── storage.ts              ← Vercel Blob OR local fs fallback
-    ├── utils.ts                ← cn(), formatMoney, daysUntilDue, agingBucket
+    ├── aging-csv.ts            ← AP aging → CSV data: URL builder
+    ├── utils.ts                ← cn, formatMoney, formatDate, daysUntilDue, agingBucket,
+    │                             getDueState, getInitials
     └── utils.test.ts           ← Vitest unit tests for money/date/aging helpers
 
 scripts/
