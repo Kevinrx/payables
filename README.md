@@ -11,8 +11,9 @@ A small, opinionated payables product inspired by [Ramp Bill Pay](https://suppor
 1. Open https://trashlab-payables.vercel.app → click around the seeded bills, try filtering by status
 2. Click **New bill** → upload any PDF from the [`samples/`](./samples) folder (or your own invoice)
 3. Watch the form populate from Claude vision in ~6 seconds — edit anything, approve, schedule a payment, mark paid
-4. Click **New bill** → "Or bulk-import from CSV" → drop [`samples/bulk-import.csv`](./samples/bulk-import.csv) to import 8 bills at once
-5. Open **Aging** in the nav to see overdue bills bucketed by vendor
+4. Hit **Import CSV** in the bills header → drop [`samples/bulk-import.csv`](./samples/bulk-import.csv) to import 8 bills at once
+5. Open **Aging** in the nav to see overdue bills bucketed by vendor; the red callout offers **Export CSV** and a **Review overdue** deep-link into the bills filter
+6. Open **Vendors** → click any row to drill into a vendor (outstanding/paid/total stats and every bill they've ever sent). The "Back" button on those bills returns you to the vendor, not to the list — works as you'd expect on mobile too
 
 ---
 
@@ -67,7 +68,7 @@ In rough order of build effort:
 
 1. **Bill ingestion via Claude vision OCR** — the differentiator. Drop a PDF or image, Claude Sonnet 4.6 extracts vendor, invoice number, dates, subtotal/tax/total, line items, and notes into a strict JSON schema (enforced with Anthropic tool-use). New vendors are deduped by case-insensitive name and auto-created.
 2. **Manual bill creation** — when there's no invoice (recurring bills, email-only mentions, back-fill). One-click "Create a bill without an invoice" → empty draft, fill in the editor, same approval flow.
-3. **CSV bulk import** (`/bills/import`) — drop a spreadsheet, get a preview table, hit Import. Per-row validation (skips bad rows with an error list). Vendor dedup runs against the existing org so no duplicates are created. Common header aliases accepted (`vendor` / `vendor_name`, `amount` / `total`).
+3. **CSV bulk import** (`/bills/import`) — drop a spreadsheet, get a preview table, hit Import. Per-row validation (skips bad rows with an error list). Vendor dedup runs against the existing org so no duplicates are created. Common header aliases accepted (`vendor` → `vendor_name`, `amount` → `total`, `invoice_no` → `invoice_number`); the page surfaces the canonical column set + aliases up front so users don't have to read code to find them.
 4. **Review and edit** — inline editor on the bill detail page with vendor combobox, dates, totals, and a fully editable line-items table (add/remove rows, auto-compute amount from qty × unit). Saves write a `bill_events` audit row.
 5. **Line item category splits** — every line item can be allocated across multiple GL categories (e.g. "AWS hosting: 60% R&D, 40% Marketing"). Inline editor with a "distribute evenly" helper, "fill remaining %" wand, and a live cents preview per split. The bill detail page aggregates splits into a "Category breakdown" table.
 6. **Approve → schedule → pay** — three explicit transitions, each with the right action button shown only when the bill is in the right state. Scheduling opens a small dialog (date, method, amount). Mark-paid finalizes.
@@ -75,7 +76,8 @@ In rough order of build effort:
 8. **Bills list with summary + filtering** — overdue, due-in-7-days, scheduled, and total outstanding stat cards (computed in SQL with FILTER aggregates). Search, status filter, and sortable columns. Per-row aging signal in the Due column ("4 days overdue", "in 6 days").
 9. **AP aging report** (`/aging`) — per-vendor table bucketed by days overdue (Current, 1–30, 31–60, 61–90, 90+), with a totals row and headline summary cards. Single SQL query using `SUM(CASE WHEN ...)` per bucket.
 10. **Per-bill activity timeline** — every state transition logged as a `bill_events` row, rendered as a vertical timeline on the detail page. Doubles as audit trail.
-11. **Vendors view** — companion list with bill counts, outstanding totals, and lifetime paid per vendor.
+11. **Vendors view + drill-down** — `/vendors` lists every supplier with bill counts, outstanding, and lifetime paid (with monogram avatars, default-method pill, and inline search). Click a row → `/vendors/[id]` shows that vendor's contact info + outstanding/paid/total stats + a scoped table of every bill they've sent. Each bill row links into `/bills/[id]?from=vendor:<id>` so the bill detail's Back button returns to the vendor (not the list). The **+ New vendor** button opens a dialog to manually create one (name + email + default payment method) — augments the auto-create-on-extraction path.
+12. **Responsive layouts under sm:** — every list page (bills, vendors, aging, vendor detail) renders a real card layout on phones rather than a horizontally-scrolled desktop table. Bill detail's hero, lifecycle stepper, and payment table reflow; the aging callout's actions become a 2-col button grid.
 
 ## What I left out and why
 
@@ -204,29 +206,35 @@ src/
 │   │   ├── page.tsx            ← AP aging report bucketed by days overdue
 │   │   └── loading.tsx
 │   └── vendors/
-│       ├── page.tsx            ← per-vendor outstanding/lifetime totals
-│       └── loading.tsx
+│       ├── page.tsx            ← list with monogram avatars, search, method pills
+│       ├── actions.ts          ← createVendor server action
+│       ├── loading.tsx
+│       └── [id]/page.tsx       ← drill-in: stats + scoped bills table
 ├── components/                 ← all client components, lowercase-with-dashes
-│   ├── app-header.tsx          ← sticky nav with demo-workspace pill
-│   ├── bills-table.tsx         ← client: filter/search/sort
-│   ├── summary-cards.tsx       ← server: 4 dashboard cards
+│   ├── app-header.tsx          ← sticky nav: Bills · Aging · Vendors
+│   ├── bills-table.tsx         ← client: filter/search/sort, mobile card layout
+│   ├── lifecycle-stepper.tsx   ← Draft → Review → Approved → Scheduled → Paid stepper
+│   ├── summary-cards.tsx       ← 4 dashboard cards w/ aging-mix sparkline on Outstanding
 │   ├── status-badge.tsx        ← color-coded status pill
 │   ├── bill-actions.tsx        ← Approve / Schedule / MarkPaid buttons
 │   ├── bill-editor.tsx         ← inline editable form for draft/needs_review bills
 │   ├── bill-event-timeline.tsx ← vertical timeline for activity
-│   ├── create-manual-bill-link.tsx ← creates an empty draft, redirects to editor
+│   ├── create-manual-bill-link.tsx ← surface card: creates empty draft, redirects to editor
 │   ├── csv-importer.tsx        ← drag-drop CSV, parse + preview + bulk import
+│   ├── expected-columns-panel.tsx ← required/optional/aliases pills + Show template
 │   ├── extraction-pending.tsx  ← skeleton + Claude trigger on first load
 │   ├── file-preview.tsx        ← <embed>/<img> for PDF or image invoices
 │   ├── file-uploader.tsx       ← drag-and-drop with mime/size validation
 │   ├── line-item-splits-dialog.tsx ← per-line allocation across categories (must sum to 100%)
+│   ├── new-vendor-dialog.tsx   ← modal: name + email + default payment method
 │   ├── repeat-bill-dialog.tsx  ← modal: frequency + count, generates child bills
-│   └── schedule-payment-dialog.tsx ← modal: date, method, amount
+│   ├── schedule-payment-dialog.tsx ← modal: date, method, amount
+│   └── vendors-list.tsx        ← client: search + dialog launcher; desktop table + mobile cards
 ├── db/
 │   ├── schema.ts               ← Drizzle schema: 6 tables, enums, indexes
 │   ├── index.ts                ← single Drizzle client (HMR-safe)
 │   └── queries.ts              ← shared read queries: listBills, getBillById,
-│                                  getBillSummary, listVendors
+│                                  getBillSummary, listVendors, getVendorById
 └── lib/
     ├── categories.ts           ← hardcoded GL category list + split helpers (alloc, fmt)
     ├── categories.test.ts      ← Vitest unit tests for split allocation
@@ -398,7 +406,7 @@ In rough order of impact:
 2. **AP email forwarding** — Postmark inbound webhook → same upload pipeline. 2 hours.
 3. **Allocation templates** — save common splits (e.g. "Standard SaaS: 70% R&D, 30% G&A") and apply with one click.
 4. **Recurring bills v2** — today the user clicks "Repeat" and we eagerly clone N copies. v2 should be a real schedule (cron worker creates the next instance N days before due) and a `/recurring` page to manage active series.
-5. **Vendor pages** — drill-in showing all bills, payment history, contact info, default payment method, 1099 data.
+5. **Vendor pages v2** — the drill-in (`/vendors/[id]`) ships today with bills, totals, and contact display. Still missing: edit-in-place for email/default method, lifetime payment history (currently inferred from bill rows), and 1099 metadata (TIN, W-9 file).
 6. **Chart of accounts + accounting sync** — replace the hardcoded category list with a per-org CoA, and push categorized bills to QBO/Xero/Netsuite.
 7. **Real payment rails** — Modern Treasury for ACH, Increase for checks, Stripe for cards. Becomes async with payment status callbacks.
 8. **Server-action integration tests** — the Vitest suite today covers pure helpers and an HTTP smoke script covers route liveness, but the mutation paths (approve, schedule, mark paid, extract, repeat, import) deserve real DB tests against a throwaway Postgres.
