@@ -377,61 +377,6 @@ body {
   background-size: 18px 18px;
 }
 
-/* ----- Toasts (sonner) — single visual primitive for every type ----- */
-/* Toaster is rendered with toastOptions.unstyled, so sonner's defaults
-   are off and these classes are the entire visual contract. Success,
-   error, info, and default all share the same shape; only the leading
-   icon's tint differs by type. */
-.tt-toast {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  width: 360px;
-  max-width: calc(100vw - 32px);
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: var(--ink);
-  color: var(--paper);
-  border: 1px solid var(--ink);
-  box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.35);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
-  font-size: 13px;
-  line-height: 1.4;
-}
-.tt-title {
-  font-weight: 500;
-  color: var(--paper);
-}
-.tt-description {
-  margin-top: 2px;
-  font-size: 12px;
-  color: oklch(0.85 0.012 65); /* muted paper */
-}
-.tt-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  flex: none;
-  margin-top: 1px;
-  color: oklch(0.85 0.012 65); /* default: muted */
-}
-.tt-icon > svg {
-  width: 14px;
-  height: 14px;
-}
-[data-sonner-toast][data-type="success"] .tt-icon { color: oklch(0.72 0.13 150); }
-[data-sonner-toast][data-type="error"]   .tt-icon { color: oklch(0.72 0.16 25);  }
-[data-sonner-toast][data-type="warning"] .tt-icon { color: oklch(0.78 0.14 80);  }
-.tt-close {
-  border: 0 !important;
-  background: transparent !important;
-  color: oklch(0.7 0.012 65) !important;
-  width: 18px !important;
-  height: 18px !important;
-}
-.tt-close:hover { color: var(--paper) !important; }
 
 /* ----- Focus ring helper for arbitrary focusable elements ----- */
 .focus-ring:focus-visible {
