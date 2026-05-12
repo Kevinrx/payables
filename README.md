@@ -1,13 +1,24 @@
 # Trashlab Payables
 
-A small, opinionated payables product inspired by [Ramp Bill Pay](https://support.ramp.com/hc/en-us/articles/27579228841875-Managing-bills-and-payments-on-Bill-Pay). Built in one sitting as a takehome.
+A small, opinionated payables product inspired by [Ramp Bill Pay](https://support.ramp.com/hc/en-us/articles/27579228841875-Managing-bills-and-payments-on-Bill-Pay). Built as a takehome.
+
+🔗 **Live demo:** https://trashlab-payables.vercel.app
+🔗 **Source:** https://github.com/Kevinrx/trashlab-payables
 
 > **The bet:** the spine of any AP product is one loop — *invoice arrives → becomes a bill → gets reviewed and approved → gets paid → shows up in aging*. Everything else (CSV upload, AP email forwarding, recurring bills, line-item splits, multi-approver workflows, GL coding) is a variation on that loop. So I built the spine end-to-end with one real magical feature — AI extraction — and called the rest scope.
+
+## Try it in 30 seconds
+
+1. Open https://trashlab-payables.vercel.app → click around the seeded bills, try filtering by status
+2. Click **New bill** → upload [`samples/01-acme-cloud.pdf`](./samples/01-acme-cloud.pdf) (or any invoice you have)
+3. Watch the form populate from Claude vision in ~6 seconds — edit anything, approve, schedule a payment, mark paid
+4. Open **Aging** in the nav to see overdue bills bucketed by vendor
 
 ---
 
 ## Contents
 
+- [Ramp Bill Pay feature coverage](#ramp-bill-pay-feature-coverage)
 - [What it does](#what-it-does)
 - [Workflows I prioritized](#workflows-i-prioritized)
 - [What I left out and why](#what-i-left-out-and-why)
@@ -24,6 +35,26 @@ A small, opinionated payables product inspired by [Ramp Bill Pay](https://suppor
 - [Honest things I'd change with another day](#honest-things-id-change-with-another-day)
 
 ---
+
+## Ramp Bill Pay feature coverage
+
+The takehome prompt linked 11 Ramp Bill Pay help-center articles. Here's the explicit scoping decision for each:
+
+| # | Prompt feature | Status | Where |
+|---|---|---|---|
+| 1 | Ramp Bill Pay OCR | ✅ Shipped | Claude Sonnet 4.6 vision; `/bills/new` → upload PDF/image |
+| 2 | Bill Pay Line Item Splits and Allocation Templates | ✅ Splits shipped (templates skipped) | Per-line category allocation with live cents preview; templates listed under "What I'd build next" |
+| 3 | Bill Pay AP Email Forwarding | ❌ Skipped | Postmark/SES inbound webhook → same upload pipeline. ~2h, didn't fit. |
+| 4 | Bill Pay spreadsheet upload (CSV) | ✅ Shipped | `/bills/import` with drag-drop, preview table, per-row validation |
+| 5 | Managing bills and payments | ✅ Shipped | `/bills` with summary cards, filter, search, sortable columns |
+| 6 | Creating draft bills | ✅ Shipped | "Create a bill without an invoice" → empty draft + editor |
+| 7 | Uploading invoices and bills | ✅ Shipped | Same as #1 — drag-drop with mime/size validation |
+| 8 | Invoice line items: Expense vs. item | ❌ Skipped | Needs an accounting backend (item = inventory, expense = GL). Without sync it's just metadata. |
+| 9 | Creating and managing recurring bill payments | ✅ Shipped | "Repeat" any bill into N future drafts (monthly / quarterly / yearly) |
+| 10 | Bill lifecycle | ✅ Shipped | Status FSM: `draft → needs_review → approved → scheduled → paid`. See [Bill status lifecycle](#bill-status-lifecycle) |
+| 11 | AP Aging Report | ✅ Shipped | `/aging` — per-vendor table bucketed by days overdue |
+
+**Score: 9 shipped / 2 skipped, with explicit reasoning on the skips.** The skipped items are documented in [What I left out and why](#what-i-left-out-and-why); the partial (Allocation Templates) is in [What I'd build next](#what-id-build-next).
 
 ## What it does
 
@@ -72,8 +103,8 @@ The interesting choices are mostly about **what got shipped in detail vs. what w
 ### One-shot
 
 ```bash
-git clone <repo>
-cd trashlab-takehome
+git clone https://github.com/Kevinrx/trashlab-payables.git
+cd trashlab-payables
 cp .env.example .env.local      # then fill in DATABASE_URL and ANTHROPIC_API_KEY
 npm install
 npm run db:generate             # generate Drizzle migration files
