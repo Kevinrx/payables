@@ -106,10 +106,14 @@ function VendorRowItem({ v }: { v: VendorRow }) {
   return (
     <tr
       className="group transition-colors hover:bg-paper-sunken"
-      style={{ borderBottom: "1px solid var(--rule-faint)" }}
+      style={{ borderBottom: "1px solid var(--rule-faint)", position: "relative" }}
     >
       <td className="px-4 py-3">
-        <Link href={detailUrl} className="flex items-center gap-3">
+        <Link
+          href={detailUrl}
+          aria-label={`Open ${v.name}`}
+          className="flex items-center gap-3 before:absolute before:inset-0 before:content-['']"
+        >
           <span
             className="grid h-9 w-9 flex-none place-items-center rounded-md text-[11px] font-semibold uppercase"
             style={{
@@ -164,13 +168,12 @@ function VendorRowItem({ v }: { v: VendorRow }) {
         )}
       </td>
       <td className="px-3 py-3 text-right">
-        <Link
-          href={detailUrl}
-          aria-label={`Open ${v.name}`}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-fainter transition-colors hover:bg-paper-sunken hover:text-ink"
+        <span
+          aria-hidden
+          className="inline-flex h-7 w-7 items-center justify-center text-ink-fainter transition-colors group-hover:text-ink"
         >
           <ChevronRight className="h-4 w-4" />
-        </Link>
+        </span>
       </td>
     </tr>
   );

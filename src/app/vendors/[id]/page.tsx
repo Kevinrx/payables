@@ -99,22 +99,13 @@ export default async function VendorDetailPage({
       </div>
 
       {/* Bills */}
-      <div className="mt-7 flex items-end justify-between">
-        <div>
-          <h2 className="text-[18px] font-semibold tracking-tight">Bills</h2>
-          <p className="mt-0.5 text-[12.5px] text-ink-faint">
-            {data.bills.length === 0
-              ? "No bills attached to this vendor yet."
-              : `${data.bills.length} bill${data.bills.length === 1 ? "" : "s"} from ${data.vendor.name}.`}
-          </p>
-        </div>
-        <Link
-          href={`/bills?vendor=${encodeURIComponent(data.vendor.name)}`}
-          className="text-[12px] font-medium hover:underline"
-          style={{ color: "var(--brand)" }}
-        >
-          Open in bills view →
-        </Link>
+      <div className="mt-7">
+        <h2 className="text-[18px] font-semibold tracking-tight">Bills</h2>
+        <p className="mt-0.5 text-[12.5px] text-ink-faint">
+          {data.bills.length === 0
+            ? "No bills attached to this vendor yet."
+            : `${data.bills.length} bill${data.bills.length === 1 ? "" : "s"} from ${data.vendor.name}.`}
+        </p>
       </div>
 
       <div className="surface mt-3 overflow-hidden">
@@ -144,14 +135,19 @@ export default async function VendorDetailPage({
                   const days = daysUntilDue(b.dueDate);
                   const isOverdue =
                     days !== null && days < 0 && b.status !== "paid" && b.status !== "void";
+                  const billUrl = `/bills/${b.id}?from=vendor:${data.vendor.id}`;
                   return (
                     <tr
                       key={b.id}
                       className="group transition-colors hover:bg-paper-sunken"
-                      style={{ borderBottom: "1px solid var(--rule-faint)" }}
+                      style={{ borderBottom: "1px solid var(--rule-faint)", position: "relative" }}
                     >
                       <td className="px-4 py-3 text-[12.5px] font-mono tabular text-ink-faint">
-                        <Link href={`/bills/${b.id}`} className="font-medium text-ink group-hover:underline">
+                        <Link
+                          href={billUrl}
+                          aria-label={`Open bill ${b.invoiceNumber ?? ""}`}
+                          className="font-medium text-ink group-hover:underline before:absolute before:inset-0 before:content-['']"
+                        >
                           {b.invoiceNumber ?? "—"}
                         </Link>
                       </td>
@@ -179,13 +175,12 @@ export default async function VendorDetailPage({
                         <StatusBadge status={isOverdue ? "overdue" : b.status} />
                       </td>
                       <td className="px-3 py-3 text-right">
-                        <Link
-                          href={`/bills/${b.id}`}
-                          aria-label="Open bill"
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-fainter transition-colors hover:bg-paper-sunken hover:text-ink"
+                        <span
+                          aria-hidden
+                          className="inline-flex h-7 w-7 items-center justify-center text-ink-fainter transition-colors group-hover:text-ink"
                         >
                           <ChevronRight className="h-4 w-4" />
-                        </Link>
+                        </span>
                       </td>
                     </tr>
                   );

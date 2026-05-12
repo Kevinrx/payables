@@ -16,13 +16,18 @@ export const dynamic = "force-dynamic";
 
 export default async function BillDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const { id } = await params;
+  const { from } = await searchParams;
   const orgId = await getDemoOrgId();
   const bill = await getBillById(id, orgId);
   if (!bill) notFound();
+
+  const back = resolveBackTarget(from, bill.vendor);
 
   const needsExtraction =
     bill.status === "draft" &&
@@ -34,11 +39,11 @@ export default async function BillDetailPage({
   return (
     <div className="mx-auto max-w-[1320px] px-4 py-7 sm:px-7">
       <Link
-        href="/bills"
+        href={back.href}
         className="btn btn-ghost btn-sm -ml-2"
       >
         <ArrowLeft className="h-3 w-3" />
-        Back to bills
+        {back.label}
       </Link>
 
       {needsExtraction ? (
@@ -437,4 +442,18 @@ function Field({
       </dd>
     </div>
   );
+}
+
+function resolveBackTarget(
+  from: string | undefined,
+  vendor: BillDetail["vendor"]
+): { href: string; label: string } {
+  if (from?.startsWith("vendor:")) {
+    const vendorId = from.slice("vendor:".length);
+    if (vendorId && (!vendor || vendor.id === vendorId)) {
+      const label = vendor?.name ? `Back to ${vendor.name}` : "Back to vendor";
+      return { href: `/vendors/${vendorId}`, label };
+    }
+  }
+  return { href: "/bills", label: "Back to bills" };
 }
