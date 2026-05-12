@@ -1,84 +1,390 @@
+/* ============================================================
+   Trashlab Payables — Design System
+   Ink-on-Bone palette · Geist + Geist Mono · Vermillion accent
+   ============================================================ */
+
 @import "tailwindcss";
 
 :root {
-  --background: #fafaf9;
-  --foreground: #0c0a09;
-  --muted: #f5f5f4;
-  --muted-foreground: #57534e;
-  --border: #e7e5e4;
-  --border-strong: #d6d3d1;
-  --card: #ffffff;
-  --accent: #0d9488; /* teal-600 */
-  --accent-hover: #0f766e;
-  --accent-foreground: #ffffff;
-  --danger: #b91c1c;
-  --danger-bg: #fef2f2;
-  --warning: #b45309;
-  --warning-bg: #fffbeb;
-  --success: #047857;
-  --success-bg: #ecfdf5;
-  --info: #1d4ed8;
-  --info-bg: #eff6ff;
-  --violet: #6d28d9;
-  --violet-bg: #f5f3ff;
+  /* Surfaces — warm bone-paper neutrals */
+  --paper:           oklch(0.973 0.005 75);
+  --paper-sunken:    oklch(0.952 0.006 75);
+  --surface:         oklch(0.992 0.003 75);
+  --surface-hover:   oklch(0.970 0.005 75);
+
+  /* Ink — warm near-black */
+  --ink:             oklch(0.205 0.012 65);
+  --ink-2:           oklch(0.36  0.010 65);
+  --ink-faint:       oklch(0.535 0.008 65);
+  --ink-fainter:     oklch(0.72  0.006 65);
+
+  /* Rules */
+  --rule:            oklch(0.905 0.006 75);
+  --rule-strong:     oklch(0.83  0.008 75);
+  --rule-faint:      oklch(0.935 0.005 75);
+
+  /* Brand — distinctive warm vermillion */
+  --brand:           oklch(0.555 0.185 35);
+  --brand-hover:     oklch(0.485 0.185 35);
+  --brand-soft:      oklch(0.945 0.045 35);
+  --brand-fg:        oklch(0.99 0 0);
+
+  /* Semantic */
+  --danger:          oklch(0.545 0.205 25);
+  --danger-soft:     oklch(0.955 0.038 25);
+  --danger-strong:   oklch(0.46  0.20  25);
+
+  --warn:            oklch(0.625 0.155 65);
+  --warn-soft:       oklch(0.955 0.035 75);
+  --warn-strong:     oklch(0.52  0.16  60);
+
+  --info:            oklch(0.495 0.13  255);
+  --info-soft:       oklch(0.955 0.028 255);
+
+  --approve:         oklch(0.46  0.155 290);
+  --approve-soft:    oklch(0.955 0.032 290);
+
+  --success:         oklch(0.535 0.115 155);
+  --success-soft:    oklch(0.945 0.035 155);
+
+  /* Radii */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+
+  /* Shadows */
+  --shadow-1: 0 1px 0 rgba(20, 18, 14, 0.04), 0 1px 2px rgba(20, 18, 14, 0.04);
+  --shadow-2: 0 2px 4px rgba(20, 18, 14, 0.05), 0 6px 18px -8px rgba(20, 18, 14, 0.10);
+  --shadow-pop: 0 12px 40px -10px rgba(20, 18, 14, 0.22), 0 4px 12px -4px rgba(20, 18, 14, 0.10);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --d-fast: 120ms;
+  --d-med:  220ms;
+  --d-slow: 380ms;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
-  --color-card: var(--card);
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-danger: var(--danger);
-  --color-danger-bg: var(--danger-bg);
-  --color-warning: var(--warning);
-  --color-warning-bg: var(--warning-bg);
-  --color-success: var(--success);
-  --color-success-bg: var(--success-bg);
-  --color-info: var(--info);
-  --color-info-bg: var(--info-bg);
-  --color-violet: var(--violet);
-  --color-violet-bg: var(--violet-bg);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-paper:         var(--paper);
+  --color-paper-sunken:  var(--paper-sunken);
+  --color-surface:       var(--surface);
+  --color-surface-hover: var(--surface-hover);
+
+  --color-background:    var(--paper);
+  --color-foreground:    var(--ink);
+  --color-card:          var(--surface);
+  --color-muted:         var(--paper-sunken);
+  --color-muted-foreground: var(--ink-faint);
+
+  --color-ink:           var(--ink);
+  --color-ink-2:         var(--ink-2);
+  --color-ink-faint:     var(--ink-faint);
+  --color-ink-fainter:   var(--ink-fainter);
+
+  --color-border:        var(--rule);
+  --color-border-strong: var(--rule-strong);
+  --color-border-faint:  var(--rule-faint);
+
+  --color-brand:         var(--brand);
+  --color-brand-hover:   var(--brand-hover);
+  --color-brand-soft:    var(--brand-soft);
+  --color-brand-foreground: var(--brand-fg);
+
+  --color-danger:        var(--danger);
+  --color-danger-strong: var(--danger-strong);
+  --color-danger-bg:     var(--danger-soft);
+
+  --color-warning:       var(--warn);
+  --color-warning-strong:var(--warn-strong);
+  --color-warning-bg:    var(--warn-soft);
+
+  --color-info:          var(--info);
+  --color-info-bg:       var(--info-soft);
+
+  --color-approve:       var(--approve);
+  --color-approve-bg:    var(--approve-soft);
+
+  --color-success:       var(--success);
+  --color-success-bg:    var(--success-soft);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
 }
 
-* {
-  border-color: var(--border);
-}
+* { border-color: var(--rule); }
 
-html, body {
-  background: var(--background);
-  color: var(--foreground);
+html, body { background: var(--paper); color: var(--ink); }
+
+body {
   font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
-  font-feature-settings: "cv11", "ss01";
+  font-feature-settings: "ss01", "cv11";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Tabular numerals for money columns */
+::selection { background: var(--brand); color: var(--brand-fg); }
+
+/* ----- Tabular numerals ----- */
 .tabular {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
 
-/* Subtle scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* ----- Mono micro-labels — small, uppercase, tracked ----- */
+.micro {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  line-height: 1;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 500;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+
+/* ----- Scrollbar ----- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
+  background: var(--rule-strong);
+  border: 2px solid var(--paper);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--ink-fainter); }
+
+/* Primitive component classes: use directly via className.
+   They encapsulate the design language so any new surface
+   stays consistent. Wrapped in @layer components so Tailwind
+   doesn't strip "utility-shaped" properties out of them. */
+
+@layer components {
+
+/* ----- Buttons ----- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: background var(--d-fast) var(--ease-out),
+              color var(--d-fast) var(--ease-out),
+              border-color var(--d-fast) var(--ease-out),
+              box-shadow var(--d-fast) var(--ease-out),
+              transform var(--d-fast) var(--ease-out);
+  border: 1px solid transparent;
+  white-space: nowrap;
+  user-select: none;
+}
+.btn:active { transform: translateY(0.5px); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.btn-brand {
+  background: var(--brand);
+  color: var(--brand-fg);
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.18), 0 1px 0 rgba(20,18,14,0.06);
+}
+.btn-brand:hover { background: var(--brand-hover); }
+
+.btn-primary {
+  background: var(--ink);
+  color: var(--paper);
+}
+.btn-primary:hover { background: oklch(0.13 0.012 65); }
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+.btn-secondary:hover { background: var(--paper-sunken); border-color: var(--ink-fainter); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-2);
+}
+.btn-ghost:hover { background: var(--paper-sunken); color: var(--ink); }
+
+.btn-success { background: var(--success); color: white; }
+.btn-success:hover { background: oklch(0.46 0.115 155); }
+
+.btn-sm { height: 28px; padding: 0 10px; font-size: 12px; border-radius: 5px; }
+.btn-lg { height: 44px; padding: 0 18px; font-size: 14px; border-radius: 8px; }
+
+/* ----- Inputs ----- */
+.input, .select, .textarea {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  transition: border-color var(--d-fast) var(--ease-out),
+              box-shadow var(--d-fast) var(--ease-out);
+  outline: none;
+}
+.input::placeholder { color: var(--ink-fainter); }
+.input:hover, .select:hover { border-color: var(--rule-strong); }
+.input:focus, .select:focus, .textarea:focus {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px oklch(0.205 0.012 65 / 0.10);
+}
+.textarea { height: auto; padding: 8px 10px; resize: vertical; min-height: 60px; }
+
+.input-inline {
+  background: transparent;
+  border: 1px solid transparent;
+}
+.input-inline:hover { border-color: var(--rule); background: var(--surface); }
+.input-inline:focus { border-color: var(--ink); background: var(--surface); }
+
+/* ----- Surface / card ----- */
+.surface {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+}
+
+/* ----- Status pills (consumed by StatusBadge) ----- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+.pill::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.65;
+  flex: none;
+}
+.pill-no-dot::before { display: none; }
+
+.pill-draft     { background: var(--paper-sunken); color: var(--ink-faint); }
+.pill-review    { background: var(--info-soft);    color: var(--info); }
+.pill-approved  { background: var(--approve-soft); color: var(--approve); }
+.pill-scheduled { background: var(--warn-soft);    color: var(--warn-strong); }
+.pill-paid      { background: var(--success-soft); color: var(--success); }
+.pill-void      { background: var(--danger-soft);  color: var(--danger); }
+.pill-overdue   { background: var(--danger-soft);  color: var(--danger-strong); }
+
+/* ----- Tabs ----- */
+.tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--paper-sunken);
+  border-radius: 8px;
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 5px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition: all var(--d-fast) var(--ease-out);
+  background: transparent;
+  border: none;
+  white-space: nowrap;
+}
+.tab:hover { color: var(--ink-2); }
+.tab[data-active="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-1);
+}
+
+/* ----- Shimmer / loading ----- */
+@keyframes shimmer {
+  0%   { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--paper-sunken) 0%,
+    var(--surface-hover) 50%,
+    var(--paper-sunken) 100%
+  );
+  background-size: 200px 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.4s linear infinite;
   border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--muted-foreground);
+
+/* ----- Extraction: scan line over the document ----- */
+@keyframes scan {
+  0%   { transform: translateY(0%); opacity: 0; }
+  8%   { opacity: 1; }
+  92%  { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
 }
+.scan-line {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 38%;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    oklch(0.555 0.185 35 / 0.02) 30%,
+    oklch(0.555 0.185 35 / 0.16) 80%,
+    oklch(0.555 0.185 35 / 0.95) 99%,
+    oklch(0.555 0.185 35) 100%
+  );
+  border-bottom: 1px solid var(--brand);
+  animation: scan 2.4s var(--ease-in-out) infinite;
+  pointer-events: none;
+}
+
+/* ----- Fade-up (extracted fields, toasts, dialogs) ----- */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp 320ms var(--ease-out) both; }
+
+/* ----- Pulse ring (in-progress markers) ----- */
+@keyframes pulseRing {
+  0%   { box-shadow: 0 0 0 0 oklch(0.555 0.185 35 / 0.30); }
+  70%  { box-shadow: 0 0 0 10px oklch(0.555 0.185 35 / 0); }
+  100% { box-shadow: 0 0 0 0 oklch(0.555 0.185 35 / 0); }
+}
+.pulse-ring { animation: pulseRing 1.8s var(--ease-out) infinite; }
+
+/* ----- Subtle dot grid for document background ----- */
+.dot-grid {
+  background-image: radial-gradient(circle, var(--rule-strong) 1px, transparent 1.4px);
+  background-size: 18px 18px;
+}
+
+/* ----- Focus ring helper for arbitrary focusable elements ----- */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px oklch(0.205 0.012 65 / 0.10);
+  border-color: var(--ink);
+}
+
+.hide-scroll::-webkit-scrollbar { display: none; }
+.hide-scroll { scrollbar-width: none; }
+
+} /* end @layer components */

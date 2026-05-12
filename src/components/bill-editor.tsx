@@ -26,16 +26,7 @@ function toDollarString(cents: number | null | undefined): string {
 
 function billToLineItemDrafts(bill: BillDetail): LineItemDraft[] {
   if (bill.lineItems.length === 0) {
-    return [
-      {
-        key: crypto.randomUUID(),
-        description: "",
-        quantity: "",
-        unit: "",
-        amount: "",
-        splits: null,
-      },
-    ];
+    return [{ key: crypto.randomUUID(), description: "", quantity: "", unit: "", amount: "", splits: null }];
   }
   return bill.lineItems.map((li) => ({
     key: li.id,
@@ -73,7 +64,6 @@ export function BillEditor({ bill }: { bill: BillDetail }) {
       items.map((li) => {
         if (li.key !== key) return li;
         const next = { ...li, ...patch };
-        // Auto-compute amount when qty and unit are both set.
         if (("quantity" in patch || "unit" in patch) && !("amount" in patch)) {
           const q = parseFloat(next.quantity);
           const u = parseFloat(next.unit);
@@ -114,7 +104,7 @@ export function BillEditor({ bill }: { bill: BillDetail }) {
 
     startTransition(async () => {
       const res = await updateBill(bill.id, {
-        vendorId: null, // resolved server-side by name
+        vendorId: null,
         vendorName: vendorName.trim() || null,
         invoiceNumber: invoiceNumber.trim() || null,
         invoiceDate: invoiceDate || null,
@@ -135,67 +125,49 @@ export function BillEditor({ bill }: { bill: BillDetail }) {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-xl border border-border bg-card">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <h2 className="text-sm font-medium tracking-tight">Bill details</h2>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isPending}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-xs font-medium text-background transition-colors hover:bg-foreground/85 disabled:opacity-60"
-          >
-            {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-            Save changes
+    <div className="flex flex-col gap-5">
+      {/* Bill details */}
+      <section className="surface overflow-hidden">
+        <div className="flex items-center justify-between border-b border-border px-[18px] py-3.5">
+          <span className="micro">Bill details</span>
+          <button type="button" onClick={handleSave} disabled={isPending} className="btn btn-secondary btn-sm">
+            {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+            Save
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-x-6 gap-y-4 p-4 sm:grid-cols-2">
-          <FieldInput
-            label="Vendor"
-            value={vendorName}
-            onChange={setVendorName}
-            placeholder="e.g. Acme Cloud Services"
-          />
-          <FieldInput
-            label="Invoice #"
-            value={invoiceNumber}
-            onChange={setInvoiceNumber}
-            placeholder="INV-001"
-          />
-          <FieldInput
-            label="Invoice date"
-            type="date"
-            value={invoiceDate}
-            onChange={setInvoiceDate}
-          />
-          <FieldInput
-            label="Due date"
-            type="date"
-            value={dueDate}
-            onChange={setDueDate}
-          />
-          <MoneyInput label="Subtotal" value={subtotal} onChange={setSubtotal} />
-          <MoneyInput label="Tax" value={tax} onChange={setTax} />
-          <MoneyInput label="Total" value={total} onChange={setTotal} emphasize />
-          <div>
-            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Notes
-            </label>
-            <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Internal memo (optional)"
-              className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2.5 text-sm focus:border-foreground focus:outline-none"
-            />
-          </div>
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 p-[18px] sm:grid-cols-2">
+          <Field label="Vendor">
+            <input type="text" value={vendorName} onChange={(e) => setVendorName(e.target.value)} placeholder="e.g. Acme Cloud Services" className="input" />
+          </Field>
+          <Field label="Invoice #">
+            <input type="text" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder="INV-001" className="input font-mono tabular" />
+          </Field>
+          <Field label="Invoice date">
+            <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className="input tabular font-mono" />
+          </Field>
+          <Field label="Due date">
+            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="input tabular font-mono" />
+          </Field>
+          <Field label="Subtotal">
+            <MoneyInput value={subtotal} onChange={setSubtotal} />
+          </Field>
+          <Field label="Tax">
+            <MoneyInput value={tax} onChange={setTax} />
+          </Field>
+          <Field label="Total" emphasize>
+            <MoneyInput value={total} onChange={setTotal} emphasize />
+          </Field>
+          <Field label="Notes">
+            <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Internal memo (optional)" className="input" />
+          </Field>
         </div>
       </section>
 
-      <section className="rounded-xl border border-border bg-card">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <h2 className="text-sm font-medium tracking-tight">Line items</h2>
+      {/* Line items */}
+      <section className="surface overflow-hidden">
+        <div className="flex items-center justify-between border-b border-border px-[18px] py-3.5">
+          <span className="micro">Line items</span>
           <LineItemSumIndicator
             lineItemsTotal={lineItemsTotal}
             subtotal={dollarsToCents(subtotal)}
@@ -203,93 +175,93 @@ export function BillEditor({ bill }: { bill: BillDetail }) {
           />
         </div>
 
-        <div className="p-4">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                <th className="pb-2">Description</th>
-                <th className="pb-2 w-20 text-right">Qty</th>
-                <th className="pb-2 w-28 text-right">Unit</th>
-                <th className="pb-2 w-32 text-right">Amount</th>
-                <th className="pb-2 w-8"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {lineItems.map((li) => (
-                <tr key={li.key} className="border-b border-border last:border-b-0 align-top">
-                  <td className="py-1.5 pr-2">
-                    <input
-                      type="text"
-                      value={li.description}
-                      onChange={(e) => updateLine(li.key, { description: e.target.value })}
-                      placeholder="Line item description"
-                      className="h-8 w-full rounded-md border border-transparent bg-transparent px-1.5 text-sm hover:border-border focus:border-foreground focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setSplittingKey(li.key)}
-                      className={`mt-0.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors ${
-                        li.splits && li.splits.length > 0
-                          ? "text-foreground hover:bg-muted"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      }`}
-                      title="Allocate to categories"
-                    >
-                      <Tag className="h-3 w-3" />
-                      <span className="truncate max-w-[260px]">
-                        {formatSplitSummary(li.splits)}
-                      </span>
-                    </button>
-                  </td>
-                  <td className="py-1.5 pr-2">
-                    <input
-                      type="number"
-                      step="1"
-                      value={li.quantity}
-                      onChange={(e) => updateLine(li.key, { quantity: e.target.value })}
-                      className="h-8 w-full rounded-md border border-transparent bg-transparent px-1.5 text-right text-sm tabular hover:border-border focus:border-foreground focus:outline-none"
-                    />
-                  </td>
-                  <td className="py-1.5 pr-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={li.unit}
-                      onChange={(e) => updateLine(li.key, { unit: e.target.value })}
-                      className="h-8 w-full rounded-md border border-transparent bg-transparent px-1.5 text-right text-sm tabular hover:border-border focus:border-foreground focus:outline-none"
-                    />
-                  </td>
-                  <td className="py-1.5 pr-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={li.amount}
-                      onChange={(e) => updateLine(li.key, { amount: e.target.value })}
-                      className="h-8 w-full rounded-md border border-transparent bg-transparent px-1.5 text-right text-sm tabular font-medium hover:border-border focus:border-foreground focus:outline-none"
-                    />
-                  </td>
-                  <td className="py-1.5">
-                    <button
-                      type="button"
-                      onClick={() => removeLine(li.key)}
-                      className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-danger"
-                      aria-label="Remove line"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <button
-            type="button"
-            onClick={addLine}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+        <div>
+          {/* Header row */}
+          <div
+            className="grid items-center gap-3 border-b border-border px-[18px] py-2.5"
+            style={{ gridTemplateColumns: "minmax(0, 1.6fr) 60px 100px 110px 28px", background: "var(--paper-sunken)" }}
           >
-            <Plus className="h-3.5 w-3.5" />
-            Add line item
-          </button>
+            <span className="micro">Description</span>
+            <span className="micro text-right">Qty</span>
+            <span className="micro text-right">Unit</span>
+            <span className="micro text-right">Amount</span>
+            <span />
+          </div>
+
+          {lineItems.map((li) => (
+            <div
+              key={li.key}
+              className="grid items-start gap-3 border-b border-border px-[18px] py-2.5 last:border-b-0"
+              style={{ gridTemplateColumns: "minmax(0, 1.6fr) 60px 100px 110px 28px" }}
+            >
+              <div className="min-w-0">
+                <input
+                  type="text"
+                  value={li.description}
+                  onChange={(e) => updateLine(li.key, { description: e.target.value })}
+                  placeholder="Line item description"
+                  className="input input-inline"
+                  style={{ height: 30 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setSplittingKey(li.key)}
+                  className="mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors"
+                  style={{
+                    background: li.splits && li.splits.length > 0 ? "var(--brand-soft)" : "transparent",
+                    color: li.splits && li.splits.length > 0 ? "var(--brand)" : "var(--ink-fainter)",
+                    border: `1px dashed ${li.splits && li.splits.length > 0 ? "transparent" : "var(--rule-strong)"}`,
+                  }}
+                  title="Allocate to categories"
+                >
+                  <Tag className="h-2.5 w-2.5" />
+                  <span className="truncate max-w-[260px]">{formatSplitSummary(li.splits)}</span>
+                </button>
+              </div>
+              <input
+                type="number"
+                step="1"
+                value={li.quantity}
+                onChange={(e) => updateLine(li.key, { quantity: e.target.value })}
+                className="input input-inline tabular font-mono text-right"
+                style={{ height: 30 }}
+              />
+              <input
+                type="number"
+                step="0.01"
+                value={li.unit}
+                onChange={(e) => updateLine(li.key, { unit: e.target.value })}
+                className="input input-inline tabular font-mono text-right"
+                style={{ height: 30 }}
+              />
+              <input
+                type="number"
+                step="0.01"
+                value={li.amount}
+                onChange={(e) => updateLine(li.key, { amount: e.target.value })}
+                className="input input-inline tabular font-mono text-right font-medium"
+                style={{ height: 30 }}
+              />
+              <button
+                type="button"
+                onClick={() => removeLine(li.key)}
+                className="btn-ghost grid h-7 w-7 place-items-center rounded"
+                aria-label="Remove line"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+
+          <div
+            className="flex items-center justify-between px-[18px] py-3"
+            style={{ background: "var(--paper-sunken)" }}
+          >
+            <button type="button" onClick={addLine} className="btn btn-ghost btn-sm">
+              <Plus className="h-3 w-3" />
+              Add line item
+            </button>
+          </div>
         </div>
       </section>
 
@@ -316,82 +288,64 @@ function LineItemSumIndicator({
   subtotal: number;
   currency: string;
 }) {
-  // Compare lines to subtotal (lines don't include tax). When the user hasn't
-  // entered a subtotal yet, just show the sum without a comparison.
   const hasSubtotal = subtotal > 0;
   const matches = hasSubtotal && lineItemsTotal === subtotal;
   return (
-    <span className="text-xs text-muted-foreground tabular">
-      Lines sum: {formatMoney(lineItemsTotal, currency)}
+    <span className="text-[11.5px] text-ink-faint tabular font-mono">
+      Lines sum:{" "}
+      <span className={matches ? "text-ink" : "text-ink"}>
+        {formatMoney(lineItemsTotal, currency)}
+      </span>
       {hasSubtotal && !matches && (
-        <span className="ml-1 text-warning">
-          (subtotal is {formatMoney(subtotal, currency)})
+        <span className="ml-1.5" style={{ color: "var(--warn-strong)" }}>
+          (subtotal {formatMoney(subtotal, currency)})
         </span>
       )}
-      {matches && <span className="ml-1 text-success">✓</span>}
+      {matches && <span className="ml-1.5" style={{ color: "var(--success)" }}>✓</span>}
     </span>
   );
 }
 
-function FieldInput({
+function Field({
   label,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
+  children,
+  emphasize,
 }: {
   label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  type?: string;
+  children: React.ReactNode;
+  emphasize?: boolean;
 }) {
   return (
-    <div>
-      <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+    <label className="flex flex-col gap-1.5 min-w-0">
+      <span className="micro" style={{ color: emphasize ? "var(--ink)" : undefined }}>
         {label}
-      </label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2.5 text-sm focus:border-foreground focus:outline-none"
-      />
-    </div>
+      </span>
+      {children}
+    </label>
   );
 }
 
 function MoneyInput({
-  label,
   value,
   onChange,
   emphasize,
 }: {
-  label: string;
   value: string;
   onChange: (v: string) => void;
   emphasize?: boolean;
 }) {
   return (
-    <div>
-      <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </label>
-      <div className="relative mt-1">
-        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-          $
-        </span>
-        <input
-          type="number"
-          step="0.01"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={`h-9 w-full rounded-md border border-border bg-background pl-6 pr-3 text-sm tabular focus:border-foreground focus:outline-none ${
-            emphasize ? "font-semibold" : ""
-          }`}
-        />
-      </div>
+    <div className="relative">
+      <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-ink-fainter">
+        $
+      </span>
+      <input
+        type="number"
+        step="0.01"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`input tabular font-mono pl-6 ${emphasize ? "font-semibold" : ""}`}
+      />
     </div>
   );
 }

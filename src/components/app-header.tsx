@@ -3,45 +3,45 @@ import { Receipt } from "lucide-react";
 
 export function AppHeader() {
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-6">
-          <Link href="/bills" className="flex items-center gap-2 font-semibold tracking-tight">
-            <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground text-background">
-              <Receipt className="h-4 w-4" />
-            </span>
-            <span>Trashlab Payables</span>
-          </Link>
-          <nav className="hidden items-center gap-1 text-sm text-muted-foreground sm:flex">
-            <Link
-              href="/bills"
-              className="rounded-md px-3 py-1.5 transition-colors hover:bg-muted hover:text-foreground"
-            >
-              Bills
-            </Link>
-            <Link
-              href="/aging"
-              className="rounded-md px-3 py-1.5 transition-colors hover:bg-muted hover:text-foreground"
-            >
-              Aging
-            </Link>
-            <Link
-              href="/vendors"
-              className="rounded-md px-3 py-1.5 transition-colors hover:bg-muted hover:text-foreground"
-            >
-              Vendors
-            </Link>
-          </nav>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/bills/new"
-            className="inline-flex h-8 items-center rounded-md bg-foreground px-3 text-sm font-medium text-background transition-colors hover:bg-foreground/85"
+    <header
+      className="sticky top-0 z-30 border-b border-border"
+      style={{
+        background: "color-mix(in oklch, var(--paper) 88%, transparent)",
+        backdropFilter: "saturate(140%) blur(8px)",
+        WebkitBackdropFilter: "saturate(140%) blur(8px)",
+      }}
+    >
+      <div className="mx-auto flex h-14 max-w-[1200px] items-center gap-7 px-4 sm:px-7">
+        <Link href="/bills" className="flex items-center gap-2.5">
+          <span
+            className="grid h-[26px] w-[26px] place-items-center rounded-md text-paper"
+            style={{
+              background: "var(--ink)",
+              boxShadow: "inset 0 -1px 0 rgba(255,255,255,0.08)",
+            }}
           >
-            New bill
-          </Link>
-        </div>
+            <Receipt className="h-3.5 w-3.5" strokeWidth={2} />
+          </span>
+          <span className="text-[14.5px] font-semibold tracking-tight">Trashlab</span>
+          <span className="text-[14.5px] text-ink-faint">Payables</span>
+        </Link>
+        <nav className="hidden items-center gap-0.5 sm:flex">
+          <HeaderLink href="/bills" label="Bills" />
+          <HeaderLink href="/aging" label="Aging" />
+          <HeaderLink href="/vendors" label="Vendors" />
+        </nav>
       </div>
     </header>
+  );
+}
+
+function HeaderLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="h-[30px] rounded-md px-3 text-[13px] font-medium text-ink-faint inline-flex items-center transition-colors hover:bg-paper-sunken hover:text-ink"
+    >
+      {label}
+    </Link>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, X, Trash2, Wand2 } from "lucide-react";
+import { Plus, Tag, Trash2, Wand2, X } from "lucide-react";
 import {
   CATEGORIES,
   TOTAL_BPS,
@@ -85,8 +85,7 @@ export function LineItemSplitsDialog({
 
   function handleSave() {
     if (!valid) return;
-    const splits = draftsToSplits(drafts);
-    onSave(splits.length > 0 ? splits : null);
+    onSave(draftsToSplits(drafts).length > 0 ? draftsToSplits(drafts) : null);
     onOpenChange(false);
   }
 
@@ -99,40 +98,52 @@ export function LineItemSplitsDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 grid place-items-center px-4"
+      style={{ background: "rgba(20,18,14,0.32)" }}
       onClick={() => onOpenChange(false)}
     >
       <div
-        className="w-full max-w-lg rounded-xl border border-border bg-card shadow-xl"
+        className="fade-up w-full max-w-[560px] overflow-hidden"
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--rule)",
+          borderRadius: 14,
+          boxShadow: "var(--shadow-pop)",
+        }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
-        <div className="flex items-start justify-between border-b border-border px-5 py-4">
-          <div className="min-w-0">
-            <h2 className="text-base font-semibold">Allocate to categories</h2>
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              {description} &middot; {formatMoney(amountCents)}
-            </p>
+        <div className="flex items-start justify-between border-b border-border px-[18px] py-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-paper-sunken text-ink-2 flex-none">
+              <Tag className="h-3.5 w-3.5" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-[15px] font-semibold tracking-tight">Allocate to categories</h2>
+              <p className="mt-0.5 truncate text-[12.5px] text-ink-faint">
+                {description} · <span className="tabular font-mono">{formatMoney(amountCents)}</span>
+              </p>
+            </div>
           </div>
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="btn-ghost grid h-7 w-7 place-items-center rounded-md flex-none"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="space-y-3 px-5 py-4">
+        <div className="flex flex-col gap-3 px-[18px] py-4">
           {drafts.map((d, i) => {
             const cents = Math.round((amountCents * (parseFloat(d.pct) || 0)) / 100);
             return (
-              <div key={d.id} className="flex items-center gap-2">
+              <div key={d.id} className="grid items-center gap-2" style={{ gridTemplateColumns: "1fr 90px 80px 28px 28px" }}>
                 <select
                   value={d.category}
                   onChange={(e) => update(d.id, { category: e.target.value })}
-                  className="h-9 flex-1 rounded-md border border-border bg-background px-2.5 text-sm focus:border-foreground focus:outline-none"
+                  className="select"
                 >
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>
@@ -148,94 +159,79 @@ export function LineItemSplitsDialog({
                     step="0.01"
                     value={d.pct}
                     onChange={(e) => update(d.id, { pct: e.target.value })}
-                    className="h-9 w-20 rounded-md border border-border bg-background pl-2 pr-5 text-right text-sm tabular focus:border-foreground focus:outline-none"
+                    className="input tabular font-mono pr-5"
+                    style={{ textAlign: "right" }}
                   />
-                  <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                  <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-ink-fainter">
                     %
                   </span>
                 </div>
-                <span className="w-20 text-right text-xs text-muted-foreground tabular">
+                <span className="text-right text-[12px] text-ink-faint tabular font-mono">
                   {formatMoney(cents)}
                 </span>
-                {drafts.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => remove(d.id)}
-                    className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-danger"
-                    aria-label="Remove split"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
-                {drafts.length > 1 && i === drafts.length - 1 && (
+                {drafts.length > 1 ? (
                   <button
                     type="button"
                     onClick={() => fillRemaining(d.id)}
-                    className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                    className="btn-ghost grid h-7 w-7 place-items-center rounded"
                     title="Fill remaining %"
+                    style={{ visibility: i === drafts.length - 1 ? "visible" : "hidden" }}
                   >
-                    <Wand2 className="h-3.5 w-3.5" />
+                    <Wand2 className="h-3 w-3" />
                   </button>
-                )}
+                ) : <span />}
+                {drafts.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => remove(d.id)}
+                    className="btn-ghost grid h-7 w-7 place-items-center rounded"
+                    aria-label="Remove split"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                ) : <span />}
               </div>
             );
           })}
+
           <div className="flex items-center justify-between pt-1">
-            <button
-              type="button"
-              onClick={add}
-              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <Plus className="h-3.5 w-3.5" />
+            <button type="button" onClick={add} className="btn btn-ghost btn-sm">
+              <Plus className="h-3 w-3" />
               Add category
             </button>
-            <button
-              type="button"
-              onClick={distributeEvenly}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <Wand2 className="h-3.5 w-3.5" />
+            <button type="button" onClick={distributeEvenly} className="btn btn-ghost btn-sm">
+              <Wand2 className="h-3 w-3" />
               Distribute evenly
             </button>
           </div>
 
           <div
-            className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm ${
-              valid
-                ? "border-success/30 bg-success-bg/50 text-success"
-                : "border-warning/30 bg-warning-bg/50 text-warning"
-            }`}
+            className="flex items-center justify-between rounded-md px-3 py-2 text-[12.5px]"
+            style={{
+              background: valid ? "var(--success-soft)" : "var(--warn-soft)",
+              color: valid ? "var(--success)" : "var(--warn-strong)",
+            }}
           >
-            <span>Total</span>
-            <span className="tabular font-medium">
+            <span>Allocated</span>
+            <span className="tabular font-mono font-medium">
               {totalPct.toFixed(2)}% {valid ? "✓" : "(must = 100%)"}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-border px-5 py-4">
-          <button
-            type="button"
-            onClick={handleClear}
-            className="text-xs text-muted-foreground hover:text-foreground"
-          >
+        <div
+          className="flex items-center justify-between gap-2 border-t border-border px-[18px] py-3.5"
+          style={{ background: "var(--paper-sunken)" }}
+        >
+          <button type="button" onClick={handleClear} className="text-[11.5px] text-ink-faint hover:text-ink">
             Clear and mark uncategorized
           </button>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              className="h-9 rounded-md border border-border bg-background px-3.5 text-sm font-medium hover:bg-muted"
-            >
+            <button type="button" onClick={() => onOpenChange(false)} className="btn btn-ghost btn-sm">
               Cancel
             </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={!valid}
-              className="h-9 rounded-md bg-foreground px-3.5 text-sm font-medium text-background transition-colors hover:bg-foreground/85 disabled:opacity-50"
-            >
-              Save split
+            <button type="button" onClick={handleSave} disabled={!valid} className="btn btn-primary btn-sm">
+              Save splits
             </button>
           </div>
         </div>

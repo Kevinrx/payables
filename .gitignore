@@ -46,6 +46,9 @@ yarn-error.log*
 # generated screenshots / scratch
 bills-list.png
 bill-detail.png
+aging.png
+new-*.png
+.design-brief/
 /public/uploads/
 
 # drizzle migration cache

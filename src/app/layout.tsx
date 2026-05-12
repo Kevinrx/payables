@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Trashlab Payables",
-  description: "AP for teams that move fast.",
+  description: "Accounts payable for teams that move fast.",
 };
 
 export default function RootLayout({
@@ -29,10 +29,24 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body className="min-h-full flex flex-col bg-paper text-ink">
         <AppHeader />
         <main className="flex-1">{children}</main>
-        <Toaster position="top-center" richColors closeButton />
+        <Toaster
+          position="top-center"
+          closeButton
+          theme="light"
+          toastOptions={{
+            style: {
+              background: "var(--ink)",
+              color: "var(--paper)",
+              border: "1px solid var(--ink)",
+              borderRadius: "8px",
+              fontFamily: "var(--font-geist-sans), system-ui, sans-serif",
+              fontSize: "13px",
+            },
+          }}
+        />
       </body>
     </html>
   );

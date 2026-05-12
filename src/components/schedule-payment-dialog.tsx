@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, X } from "lucide-react";
+import { Banknote, CreditCard, FileText, Loader2, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import type { BillDetail } from "@/db/queries";
 import { schedulePayment } from "@/app/bills/actions";
@@ -10,9 +10,15 @@ import { dollarsToCents, formatMoney } from "@/lib/utils";
 
 function defaultPayDate(): string {
   const d = new Date();
-  d.setDate(d.getDate() + 3); // T+3 business-ish
+  d.setDate(d.getDate() + 3);
   return d.toISOString().slice(0, 10);
 }
+
+const METHODS = [
+  { id: "ach" as const, label: "ACH", sub: "2–3 business days", icon: Banknote },
+  { id: "check" as const, label: "Check", sub: "Mailed next business day", icon: FileText },
+  { id: "card" as const, label: "Card", sub: "Same-day, 2.9% fee", icon: CreditCard },
+];
 
 export function SchedulePaymentDialog({
   open,
@@ -33,7 +39,6 @@ export function SchedulePaymentDialog({
     ((bill.totalCents ?? 0) / 100).toFixed(2)
   );
 
-  // Reset when reopened.
   useEffect(() => {
     if (open) {
       setDate(defaultPayDate());
@@ -71,73 +76,86 @@ export function SchedulePaymentDialog({
 
   return (
     <div
-      className="fixed inset-0 z-40 grid place-items-center bg-black/40 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 grid place-items-center px-4"
+      style={{ background: "rgba(20,18,14,0.32)" }}
       onClick={() => onOpenChange(false)}
     >
       <div
-        className="w-full max-w-md rounded-xl border border-border bg-card shadow-xl"
+        className="fade-up w-full max-w-[520px] overflow-hidden"
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--rule)",
+          borderRadius: 14,
+          boxShadow: "var(--shadow-pop)",
+        }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
-        <div className="flex items-start justify-between border-b border-border px-5 py-4">
-          <div>
-            <h2 className="text-base font-semibold">Schedule payment</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Pay {bill.vendor?.name ?? "vendor"} — invoice {bill.invoiceNumber ?? "—"}
-            </p>
+        <div className="flex items-start justify-between border-b border-border px-[18px] py-4">
+          <div className="flex items-start gap-3">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-paper-sunken text-ink-2">
+              <Send className="h-3.5 w-3.5" />
+            </span>
+            <div>
+              <h2 className="text-[15px] font-semibold tracking-tight">Schedule payment</h2>
+              <p className="mt-0.5 text-[12.5px] text-ink-faint">
+                {bill.vendor?.name ?? "Vendor"} · {formatMoney(bill.totalCents, bill.currency)}
+              </p>
+            </div>
           </div>
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="btn-ghost grid h-7 w-7 place-items-center rounded-md"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
-          <div>
-            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Pay date
-            </label>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 px-[18px] py-4">
+          <label className="flex flex-col gap-1.5">
+            <span className="micro">Pay on</span>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2.5 text-sm focus:border-foreground focus:outline-none"
+              className="input"
               required
             />
-          </div>
+          </label>
 
-          <div>
-            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Method
-            </label>
-            <div className="mt-1 grid grid-cols-3 gap-2">
-              {(["ach", "check", "card"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMethod(m)}
-                  className={`h-9 rounded-md border text-sm font-medium uppercase tracking-wide transition-colors ${
-                    method === m
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border bg-background hover:border-border-strong"
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
+          <div className="flex flex-col gap-1.5">
+            <span className="micro">Method</span>
+            <div className="grid grid-cols-3 gap-2">
+              {METHODS.map((m) => {
+                const Icon = m.icon;
+                const active = method === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setMethod(m.id)}
+                    className="flex flex-col gap-1 rounded-lg p-3 text-left transition-colors"
+                    style={{
+                      background: "var(--surface)",
+                      border: `1px solid ${active ? "var(--ink)" : "var(--rule)"}`,
+                      boxShadow: active ? "0 0 0 3px oklch(0.205 0.012 65 / 0.08)" : "none",
+                    }}
+                  >
+                    <Icon className="h-3.5 w-3.5" strokeWidth={1.7} />
+                    <div className="text-[13px] font-medium">{m.label}</div>
+                    <div className="text-[11px] text-ink-faint leading-tight">{m.sub}</div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div>
-            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Amount
-            </label>
-            <div className="relative mt-1">
-              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+          <label className="flex flex-col gap-1.5">
+            <span className="micro">Amount</span>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-fainter text-[13px]">
                 $
               </span>
               <input
@@ -146,33 +164,33 @@ export function SchedulePaymentDialog({
                 min="0"
                 value={amountDollars}
                 onChange={(e) => setAmountDollars(e.target.value)}
-                className="h-9 w-full rounded-md border border-border bg-background pl-6 pr-3 text-sm tabular focus:border-foreground focus:outline-none"
+                className="input tabular pl-6 font-mono"
                 required
               />
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Bill total: {formatMoney(bill.totalCents, bill.currency)}
+            <p className="text-[11.5px] text-ink-faint">
+              Bill total: <span className="tabular font-mono">{formatMoney(bill.totalCents, bill.currency)}</span>
             </p>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              className="h-9 rounded-md border border-border bg-background px-3.5 text-sm font-medium hover:bg-muted"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3.5 text-sm font-medium text-background transition-colors hover:bg-foreground/85 disabled:opacity-60"
-            >
-              {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Schedule payment
-            </button>
-          </div>
+          </label>
         </form>
+
+        <div
+          className="flex items-center justify-end gap-2 border-t border-border px-[18px] py-3.5"
+          style={{ background: "var(--paper-sunken)" }}
+        >
+          <button type="button" onClick={() => onOpenChange(false)} className="btn btn-ghost btn-sm">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={(e) => handleSubmit(e as unknown as React.FormEvent)}
+            disabled={isPending}
+            className="btn btn-brand btn-sm"
+          >
+            {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+            Schedule
+          </button>
+        </div>
       </div>
     </div>
   );

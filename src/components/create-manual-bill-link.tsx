@@ -28,13 +28,13 @@ export function CreateManualBillLink() {
       type="button"
       onClick={handleClick}
       disabled={isPending}
-      className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
+      className="inline-flex items-center gap-1 text-[13px] text-ink-faint transition-colors hover:text-ink disabled:opacity-60"
     >
       Or create a bill without an invoice
       {isPending ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        <Loader2 className="h-3 w-3 animate-spin" />
       ) : (
-        <ArrowRight className="h-3.5 w-3.5" />
+        <ArrowRight className="h-3 w-3" />
       )}
     </button>
   );

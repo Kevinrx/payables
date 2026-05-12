@@ -2,18 +2,18 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, X, Repeat } from "lucide-react";
+import { Loader2, Repeat, X } from "lucide-react";
 import { toast } from "sonner";
 import type { BillDetail } from "@/db/queries";
 import { repeatBill } from "@/app/bills/actions";
 
 type Frequency = "monthly" | "quarterly" | "yearly";
 
-const FREQUENCY_LABELS: Record<Frequency, string> = {
-  monthly: "Monthly",
-  quarterly: "Quarterly",
-  yearly: "Yearly",
-};
+const FREQUENCIES: { id: Frequency; label: string }[] = [
+  { id: "monthly", label: "Monthly" },
+  { id: "quarterly", label: "Quarterly" },
+  { id: "yearly", label: "Yearly" },
+];
 
 export function RepeatBillDialog({
   open,
@@ -54,120 +54,128 @@ export function RepeatBillDialog({
 
   return (
     <div
-      className="fixed inset-0 z-40 grid place-items-center bg-black/40 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 grid place-items-center px-4"
+      style={{ background: "rgba(20,18,14,0.32)" }}
       onClick={() => onOpenChange(false)}
     >
       <div
-        className="w-full max-w-md rounded-xl border border-border bg-card shadow-xl"
+        className="fade-up w-full max-w-[500px] overflow-hidden"
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--rule)",
+          borderRadius: 14,
+          boxShadow: "var(--shadow-pop)",
+        }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
-        <div className="flex items-start justify-between border-b border-border px-5 py-4">
-          <div>
-            <h2 className="text-base font-semibold">Repeat this bill</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Generate future copies as draft bills. Dates shift forward; amounts stay the same.
-            </p>
+        <div className="flex items-start justify-between border-b border-border px-[18px] py-4">
+          <div className="flex items-start gap-3">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-paper-sunken text-ink-2">
+              <Repeat className="h-3.5 w-3.5" />
+            </span>
+            <div>
+              <h2 className="text-[15px] font-semibold tracking-tight">Repeat this bill</h2>
+              <p className="mt-0.5 text-[12.5px] text-ink-faint">
+                Generate future copies as draft bills. Dates shift forward; amounts stay the same.
+              </p>
+            </div>
           </div>
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="btn-ghost grid h-7 w-7 place-items-center rounded-md"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {!canSubmit ? (
-          <div className="px-5 py-4 text-sm text-muted-foreground">
-            This bill needs both an invoice date and a due date before it can be
-            repeated. Edit the bill, save, and try again.
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                className="h-9 rounded-md border border-border bg-background px-3.5 text-sm font-medium hover:bg-muted"
-              >
+          <>
+            <div className="px-[18px] py-4 text-[13px] text-ink-faint">
+              This bill needs both an invoice date and a due date before it can be repeated. Edit the bill, save, and try again.
+            </div>
+            <div
+              className="flex items-center justify-end gap-2 border-t border-border px-[18px] py-3.5"
+              style={{ background: "var(--paper-sunken)" }}
+            >
+              <button type="button" onClick={() => onOpenChange(false)} className="btn btn-ghost btn-sm">
                 Close
               </button>
             </div>
-          </div>
+          </>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
-            <div>
-              <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Frequency
-              </label>
-              <div className="mt-1 grid grid-cols-3 gap-2">
-                {(Object.keys(FREQUENCY_LABELS) as Frequency[]).map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => setFrequency(f)}
-                    className={`h-9 rounded-md border text-sm font-medium transition-colors ${
-                      frequency === f
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border bg-background hover:border-border-strong"
-                    }`}
-                  >
-                    {FREQUENCY_LABELS[f]}
-                  </button>
-                ))}
+          <>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 px-[18px] py-4">
+              <div className="flex flex-col gap-1.5">
+                <span className="micro">Cadence</span>
+                <div className="tabs" style={{ width: "100%" }}>
+                  {FREQUENCIES.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      className="tab"
+                      data-active={frequency === f.id}
+                      onClick={() => setFrequency(f.id)}
+                      style={{ flex: 1 }}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Number of copies
+              <label className="flex flex-col gap-1.5">
+                <span className="micro">Number of copies</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={count}
+                  onChange={(e) => setCount(Math.max(1, Math.min(24, Number(e.target.value) || 1)))}
+                  className="input tabular font-mono"
+                  required
+                />
+                <p className="text-[11.5px] text-ink-faint">
+                  Between 1 and 24. We'll create draft bills you can review later.
+                </p>
               </label>
-              <input
-                type="number"
-                min={1}
-                max={24}
-                value={count}
-                onChange={(e) => setCount(Math.max(1, Math.min(24, Number(e.target.value) || 1)))}
-                className="mt-1 h-9 w-full rounded-md border border-border bg-background px-2.5 text-sm tabular focus:border-foreground focus:outline-none"
-                required
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Between 1 and 24. We'll create draft bills you can review later.
-              </p>
-            </div>
 
-            <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">Preview:</span> generates{" "}
-              {count} {frequency} draft{count > 1 ? "s" : ""} starting{" "}
-              {frequency === "monthly"
-                ? "next month"
-                : frequency === "quarterly"
-                ? "in 3 months"
-                : "next year"}
-              .
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                className="h-9 rounded-md border border-border bg-background px-3.5 text-sm font-medium hover:bg-muted"
+              <div
+                className="rounded-lg p-3 text-[12.5px] leading-relaxed"
+                style={{ background: "var(--brand-soft)", color: "var(--ink-2)" }}
               >
+                <strong style={{ color: "var(--brand)" }}>Heads up:</strong> we'll create{" "}
+                <span className="tabular font-mono">{count}</span> {frequency} draft{count > 1 ? "s" : ""}{" "}
+                starting{" "}
+                {frequency === "monthly"
+                  ? "next month"
+                  : frequency === "quarterly"
+                  ? "in 3 months"
+                  : "next year"}
+                . Each will need review before approval.
+              </div>
+            </form>
+
+            <div
+              className="flex items-center justify-end gap-2 border-t border-border px-[18px] py-3.5"
+              style={{ background: "var(--paper-sunken)" }}
+            >
+              <button type="button" onClick={() => onOpenChange(false)} className="btn btn-ghost btn-sm">
                 Cancel
               </button>
               <button
-                type="submit"
+                type="button"
+                onClick={(e) => handleSubmit(e as unknown as React.FormEvent)}
                 disabled={isPending}
-                className="inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3.5 text-sm font-medium text-background transition-colors hover:bg-foreground/85 disabled:opacity-60"
+                className="btn btn-primary btn-sm"
               >
-                {isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Repeat className="h-4 w-4" />
-                )}
-                Generate
+                {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Repeat className="h-3.5 w-3.5" />}
+                Create schedule
               </button>
             </div>
-          </form>
+          </>
         )}
       </div>
     </div>

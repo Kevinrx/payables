@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { sql } from "drizzle-orm";
-import { db, schema } from "@/db";
+import { db } from "@/db";
 import { getDemoOrgId } from "@/db/queries";
 import { formatMoney } from "@/lib/utils";
 
@@ -28,56 +29,85 @@ export default async function VendorsPage() {
   `);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-7">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Vendors</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Suppliers you've paid or owe.
+        <span className="micro">A/P · Vendors</span>
+        <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Vendors</h1>
+        <p className="mt-1 text-[13px] text-ink-faint">
+          Suppliers you&apos;ve paid or owe.
         </p>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <th className="px-4 py-2.5">Vendor</th>
-              <th className="px-4 py-2.5">Bills</th>
-              <th className="px-4 py-2.5 text-right">Outstanding</th>
-              <th className="px-4 py-2.5 text-right">Paid (lifetime)</th>
-              <th className="px-4 py-2.5">Default method</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  No vendors yet.
-                </td>
+      <div className="surface mt-6 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr
+                className="text-left"
+                style={{ borderBottom: "1px solid var(--rule)", background: "var(--paper-sunken)" }}
+              >
+                <th className="px-4 py-2.5 micro">Vendor</th>
+                <th className="px-4 py-2.5 micro">Bills</th>
+                <th className="px-4 py-2.5 text-right micro">Outstanding</th>
+                <th className="px-4 py-2.5 text-right micro">Paid (lifetime)</th>
+                <th className="px-4 py-2.5 micro">Default method</th>
               </tr>
-            ) : (
-              rows.map((v) => (
-                <tr key={v.id} className="border-b border-border last:border-b-0">
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{v.name}</div>
-                    {v.email && (
-                      <div className="text-xs text-muted-foreground">{v.email}</div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm tabular">{v.bill_count}</td>
-                  <td className="px-4 py-3 text-right text-sm tabular font-medium">
-                    {formatMoney(Number(v.outstanding_cents))}
-                  </td>
-                  <td className="px-4 py-3 text-right text-sm tabular text-muted-foreground">
-                    {formatMoney(Number(v.paid_cents))}
-                  </td>
-                  <td className="px-4 py-3 text-xs uppercase tracking-wider text-muted-foreground">
-                    {v.default_payment_method ?? "—"}
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-12 text-center text-[13px] text-ink-faint">
+                    No vendors yet.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                rows.map((v) => {
+                  const outstanding = Number(v.outstanding_cents);
+                  return (
+                    <tr
+                      key={v.id}
+                      className="transition-colors hover:bg-paper-sunken"
+                      style={{ borderBottom: "1px solid var(--rule-faint)" }}
+                    >
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/bills?vendor=${encodeURIComponent(v.name)}`}
+                          className="text-[13.5px] font-medium hover:underline"
+                        >
+                          {v.name}
+                        </Link>
+                        {v.email && (
+                          <div className="mt-0.5 text-[11.5px] text-ink-faint">{v.email}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-[13px] font-mono tabular text-ink-2">
+                        {v.bill_count}
+                      </td>
+                      <td
+                        className="px-4 py-3 text-right text-[13.5px] font-mono tabular font-semibold"
+                        style={{ color: outstanding > 0 ? "var(--ink)" : "var(--ink-fainter)" }}
+                      >
+                        {outstanding > 0 ? formatMoney(outstanding) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right text-[13px] font-mono tabular text-ink-faint">
+                        {formatMoney(Number(v.paid_cents))}
+                      </td>
+                      <td className="px-4 py-3">
+                        {v.default_payment_method ? (
+                          <span className="micro" style={{ color: "var(--ink-2)" }}>
+                            {v.default_payment_method}
+                          </span>
+                        ) : (
+                          <span className="text-[11.5px] text-ink-fainter">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

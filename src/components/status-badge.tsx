@@ -1,50 +1,23 @@
 import type { BillStatus } from "@/db/schema";
 import { cn } from "@/lib/utils";
 
-const STATUS_STYLES: Record<BillStatus, { label: string; className: string }> = {
-  draft: {
-    label: "Draft",
-    className: "bg-muted text-muted-foreground",
-  },
-  needs_review: {
-    label: "Needs review",
-    className: "bg-info-bg text-info",
-  },
-  approved: {
-    label: "Approved",
-    className: "bg-violet-bg text-violet",
-  },
-  scheduled: {
-    label: "Scheduled",
-    className: "bg-warning-bg text-warning",
-  },
-  paid: {
-    label: "Paid",
-    className: "bg-success-bg text-success",
-  },
-  void: {
-    label: "Void",
-    className: "bg-danger-bg text-danger",
-  },
+const STATUS_STYLES: Record<BillStatus | "overdue", { label: string; cls: string }> = {
+  draft:        { label: "Draft",        cls: "pill-draft" },
+  needs_review: { label: "Needs review", cls: "pill-review" },
+  approved:     { label: "Approved",     cls: "pill-approved" },
+  scheduled:    { label: "Scheduled",    cls: "pill-scheduled" },
+  paid:         { label: "Paid",         cls: "pill-paid" },
+  void:         { label: "Void",         cls: "pill-void" },
+  overdue:      { label: "Overdue",      cls: "pill-overdue" },
 };
 
 export function StatusBadge({
   status,
   className,
 }: {
-  status: BillStatus;
+  status: BillStatus | "overdue";
   className?: string;
 }) {
   const s = STATUS_STYLES[status];
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ring-current/10",
-        s.className,
-        className
-      )}
-    >
-      {s.label}
-    </span>
-  );
+  return <span className={cn("pill", s.cls, className)}>{s.label}</span>;
 }

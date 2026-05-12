@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Wallet, Send, Loader2, Repeat } from "lucide-react";
+import { CheckCircle2, Loader2, Repeat, Send, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import type { BillDetail } from "@/db/queries";
 import { approveBill, markBillPaid } from "@/app/bills/actions";
@@ -48,75 +48,44 @@ export function BillActions({ bill }: { bill: BillDetail }) {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-2" style={{ flexWrap: "nowrap" }}>
         {canApprove && (
-          <button
-            type="button"
-            onClick={handleApprove}
-            disabled={isPending}
-            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3.5 text-sm font-medium text-background transition-colors hover:bg-foreground/85 disabled:opacity-60"
-          >
-            {isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4" />
-            )}
+          <button type="button" onClick={handleApprove} disabled={isPending} className="btn btn-brand">
+            {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
             Approve
           </button>
         )}
         {canSchedule && (
-          <button
-            type="button"
-            onClick={() => setScheduleOpen(true)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3.5 text-sm font-medium text-background transition-colors hover:bg-foreground/85"
-          >
-            <Send className="h-4 w-4" />
-            Schedule payment
+          <button type="button" onClick={() => setScheduleOpen(true)} className="btn btn-brand">
+            <Send className="h-3.5 w-3.5" />
+            Schedule
           </button>
         )}
         {canMarkPaid && (
-          <button
-            type="button"
-            onClick={handleMarkPaid}
-            disabled={isPending}
-            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-success px-3.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-60"
-          >
-            {isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Wallet className="h-4 w-4" />
-            )}
+          <button type="button" onClick={handleMarkPaid} disabled={isPending} className="btn btn-success">
+            {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
             Mark as paid
           </button>
         )}
         {bill.status === "paid" && (
-          <span className="inline-flex h-9 items-center gap-1.5 rounded-md bg-success-bg px-3.5 text-sm font-medium text-success">
-            <CheckCircle2 className="h-4 w-4" />
+          <span
+            className="btn btn-secondary"
+            style={{ background: "var(--success-soft)", color: "var(--success)", borderColor: "transparent", cursor: "default" }}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
             Paid {bill.payments[0]?.paidAt ? new Date(bill.payments[0].paidAt).toLocaleDateString() : ""}
           </span>
         )}
         {canRepeat && (
-          <button
-            type="button"
-            onClick={() => setRepeatOpen(true)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-background px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-          >
-            <Repeat className="h-4 w-4" />
+          <button type="button" onClick={() => setRepeatOpen(true)} className="btn btn-secondary">
+            <Repeat className="h-3.5 w-3.5" />
             Repeat
           </button>
         )}
       </div>
 
-      <SchedulePaymentDialog
-        open={scheduleOpen}
-        onOpenChange={setScheduleOpen}
-        bill={bill}
-      />
-      <RepeatBillDialog
-        open={repeatOpen}
-        onOpenChange={setRepeatOpen}
-        bill={bill}
-      />
+      <SchedulePaymentDialog open={scheduleOpen} onOpenChange={setScheduleOpen} bill={bill} />
+      <RepeatBillDialog open={repeatOpen} onOpenChange={setRepeatOpen} bill={bill} />
     </>
   );
 }

@@ -163,7 +163,7 @@ export function CsvImporter() {
           <FileUp className="h-5 w-5" />
         </span>
         <p className="mt-3 text-sm font-medium">
-          Drop a CSV here, or <span className="text-accent">browse</span>
+          Drop a CSV here, or <span className="text-brand">browse</span>
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           Required columns: <code>vendor_name</code>, <code>total</code>. Optional:{" "}
@@ -238,12 +238,12 @@ export function CsvImporter() {
               type="button"
               onClick={handleSubmit}
               disabled={isPending}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3.5 text-sm font-medium text-background transition-colors hover:bg-foreground/85 disabled:opacity-60"
+              className="btn btn-brand"
             >
               {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Upload className="h-4 w-4" />
+                <Upload className="h-3.5 w-3.5" />
               )}
               Import {result.rows.length}
             </button>

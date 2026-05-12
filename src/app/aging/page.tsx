@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { sql } from "drizzle-orm";
+import { AlertTriangle } from "lucide-react";
 import { db } from "@/db";
 import { getDemoOrgId } from "@/db/queries";
 import { formatMoney } from "@/lib/utils";
@@ -70,10 +71,11 @@ export default async function AgingPage() {
   const totalOverdue = totals.b1_30 + totals.b31_60 + totals.b61_90 + totals.b90;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-7">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">AP Aging</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <span className="micro">A/P · Aging report</span>
+        <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Aging</h1>
+        <p className="mt-1 text-[13px] text-ink-faint">
           Outstanding bills bucketed by how overdue they are. Excludes paid and voided bills.
         </p>
       </div>
@@ -89,45 +91,59 @@ export default async function AgingPage() {
       </div>
 
       {totalOverdue > 0 && (
-        <div className="mt-4 flex items-center gap-2 rounded-lg border border-danger/20 bg-danger-bg/60 px-4 py-2.5 text-sm text-danger">
-          <span className="font-medium">{formatMoney(totalOverdue)} overdue</span>
-          <span className="text-muted-foreground">
+        <div
+          className="mt-4 flex items-center gap-2.5 rounded-lg px-4 py-2.5 text-[13px]"
+          style={{ background: "var(--danger-soft)", color: "var(--danger-strong)" }}
+        >
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span className="font-semibold tabular">{formatMoney(totalOverdue)} overdue</span>
+          <span style={{ color: "var(--ink-2)" }}>
             across {totals.count} {totals.count === 1 ? "bill" : "bills"} from {rows.length} {rows.length === 1 ? "vendor" : "vendors"}
           </span>
         </div>
       )}
 
       {/* Per-vendor table */}
-      <div className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
+      <div className="surface mt-6 overflow-hidden">
         {rows.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <p className="text-sm font-medium">No outstanding bills</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              You're all caught up. Bills will appear here as they're created.
+          <div className="px-6 py-14 text-center">
+            <p className="text-[13.5px] font-medium">No outstanding bills</p>
+            <p className="mt-1 text-[12px] text-ink-faint">
+              You&apos;re all caught up. Bills will appear here as they&apos;re created.
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-border bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  <th className="px-4 py-2.5">Vendor</th>
-                  <th className="px-4 py-2.5 text-right">Current</th>
-                  <th className="px-4 py-2.5 text-right">1–30 days</th>
-                  <th className="px-4 py-2.5 text-right">31–60 days</th>
-                  <th className="px-4 py-2.5 text-right">61–90 days</th>
-                  <th className="px-4 py-2.5 text-right">90+ days</th>
-                  <th className="px-4 py-2.5 text-right">Total</th>
+                <tr
+                  className="text-left"
+                  style={{ borderBottom: "1px solid var(--rule)", background: "var(--paper-sunken)" }}
+                >
+                  <th className="px-4 py-2.5 micro">Vendor</th>
+                  <th className="px-4 py-2.5 text-right micro">Current</th>
+                  <th className="px-4 py-2.5 text-right micro">1–30</th>
+                  <th className="px-4 py-2.5 text-right micro">31–60</th>
+                  <th className="px-4 py-2.5 text-right micro">61–90</th>
+                  <th className="px-4 py-2.5 text-right micro">90+</th>
+                  <th className="px-4 py-2.5 text-right micro">Total</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.vendor_id} className="border-b border-border last:border-b-0 hover:bg-muted/30">
+                  <tr
+                    key={r.vendor_id}
+                    className="transition-colors hover:bg-paper-sunken"
+                    style={{ borderBottom: "1px solid var(--rule-faint)" }}
+                  >
                     <td className="px-4 py-3">
-                      <Link href={`/bills?vendor=${encodeURIComponent(r.vendor_name)}`} className="font-medium">
+                      <Link
+                        href={`/bills?vendor=${encodeURIComponent(r.vendor_name)}`}
+                        className="text-[13.5px] font-medium hover:underline"
+                      >
                         {r.vendor_name}
                       </Link>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="mt-0.5 text-[11.5px] text-ink-faint">
                         {r.bill_count} {Number(r.bill_count) === 1 ? "bill" : "bills"}
                       </div>
                     </td>
@@ -136,20 +152,23 @@ export default async function AgingPage() {
                     <BucketCell cents={Number(r.bucket_31_60)} tone="warning" />
                     <BucketCell cents={Number(r.bucket_61_90)} tone="danger" />
                     <BucketCell cents={Number(r.bucket_90_plus)} tone="danger" />
-                    <td className="px-4 py-3 text-right text-sm font-semibold tabular">
+                    <td className="px-4 py-3 text-right text-[13.5px] font-semibold font-mono tabular">
                       {formatMoney(Number(r.total_cents))}
                     </td>
                   </tr>
                 ))}
                 {/* Totals row */}
-                <tr className="border-t-2 border-border bg-muted/30 font-medium">
-                  <td className="px-4 py-3 text-sm">Total</td>
+                <tr
+                  className="font-medium"
+                  style={{ borderTop: "2px solid var(--rule-strong)", background: "var(--paper-sunken)" }}
+                >
+                  <td className="px-4 py-3 text-[13px]">Total</td>
                   <BucketCell cents={totals.current} />
                   <BucketCell cents={totals.b1_30} />
                   <BucketCell cents={totals.b31_60} />
                   <BucketCell cents={totals.b61_90} />
                   <BucketCell cents={totals.b90} />
-                  <td className="px-4 py-3 text-right text-sm font-semibold tabular">
+                  <td className="px-4 py-3 text-right text-[13.5px] font-semibold font-mono tabular">
                     {formatMoney(totals.grand)}
                   </td>
                 </tr>
@@ -175,34 +194,26 @@ function SummaryCard({
   tone?: "neutral" | "warning" | "danger";
   emphasize?: boolean;
 }) {
-  const toneRing =
+  const valueColor =
     tone === "danger"
-      ? "border-danger/20"
+      ? "var(--danger)"
       : tone === "warning"
-      ? "border-warning/20"
-      : "border-border";
+      ? "var(--warn-strong, var(--ink))"
+      : "var(--ink)";
   return (
     <div
-      className={`rounded-xl border bg-card p-4 ${emphasize ? "border-foreground" : toneRing}`}
+      className="surface px-4 py-3.5"
+      style={emphasize ? { borderColor: "var(--ink)" } : undefined}
     >
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
+      <div className="micro">{label}</div>
       <div
-        className={`mt-2 text-xl font-semibold tabular tracking-tight ${
-          emphasize
-            ? "text-foreground"
-            : tone === "danger"
-            ? "text-danger"
-            : tone === "warning"
-            ? "text-warning"
-            : "text-foreground"
-        }`}
+        className="mt-2 text-[19px] font-semibold tabular tracking-tight font-mono"
+        style={{ color: emphasize ? "var(--ink)" : valueColor }}
       >
         {formatMoney(cents)}
       </div>
       {count !== undefined && (
-        <div className="mt-0.5 text-xs text-muted-foreground">
+        <div className="mt-0.5 text-[11.5px] text-ink-faint">
           {count} {count === 1 ? "bill" : "bills"}
         </div>
       )}
@@ -218,17 +229,20 @@ function BucketCell({
   tone?: "warning" | "danger";
 }) {
   const isZero = cents === 0;
+  const color = isZero
+    ? "var(--ink-fainter)"
+    : tone === "danger"
+    ? "var(--danger)"
+    : tone === "warning"
+    ? "var(--warn-strong, var(--ink-2))"
+    : "var(--ink)";
   return (
     <td
-      className={`px-4 py-3 text-right text-sm tabular ${
-        isZero
-          ? "text-muted-foreground"
-          : tone === "danger"
-          ? "text-danger font-medium"
-          : tone === "warning"
-          ? "text-warning"
-          : ""
-      }`}
+      className="px-4 py-3 text-right text-[13px] font-mono tabular"
+      style={{
+        color,
+        fontWeight: tone === "danger" && !isZero ? 600 : undefined,
+      }}
     >
       {isZero ? "—" : formatMoney(cents)}
     </td>

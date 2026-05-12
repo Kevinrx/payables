@@ -76,7 +76,7 @@ export function FileUploader() {
           <FileUp className="h-5 w-5" />
         </span>
         <p className="mt-3 text-sm font-medium">
-          Drop an invoice here, or <span className="text-accent">browse</span>
+          Drop an invoice here, or <span className="text-brand">browse</span>
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           PDF, PNG, JPEG, or WebP &middot; up to 10 MB
@@ -93,11 +93,11 @@ export function FileUploader() {
       </label>
 
       {file && (
-        <div className="mt-3 flex items-center justify-between rounded-lg border border-border bg-card px-3.5 py-3">
+        <div className="surface mt-3 flex items-center justify-between px-3.5 py-3 fade-up">
           <div className="min-w-0">
-            <div className="truncate text-sm font-medium">{file.name}</div>
-            <div className="text-xs text-muted-foreground">
-              {(file.size / 1024).toFixed(1)} KB &middot; {file.type}
+            <div className="truncate text-[13px] font-medium">{file.name}</div>
+            <div className="text-[11.5px] text-ink-faint tabular font-mono">
+              {(file.size / 1024).toFixed(1)} KB · {file.type}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -105,7 +105,7 @@ export function FileUploader() {
               type="button"
               onClick={() => setFile(null)}
               disabled={isPending}
-              className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="btn-ghost grid h-8 w-8 place-items-center rounded-md"
               aria-label="Remove file"
             >
               <X className="h-4 w-4" />
@@ -114,16 +114,16 @@ export function FileUploader() {
               type="button"
               onClick={onSubmit}
               disabled={isPending}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3.5 text-sm font-medium text-background transition-colors hover:bg-foreground/85 disabled:opacity-60"
+              className="btn btn-brand"
             >
               {isPending ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Uploading...
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Uploading…
                 </>
               ) : (
                 <>
-                  <Upload className="h-4 w-4" />
+                  <Upload className="h-3.5 w-3.5" />
                   Upload &amp; extract
                 </>
               )}
