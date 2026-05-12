@@ -37,13 +37,13 @@ export default function RootLayout({
           closeButton
           theme="light"
           toastOptions={{
-            style: {
-              background: "var(--ink)",
-              color: "var(--paper)",
-              border: "1px solid var(--ink)",
-              borderRadius: "8px",
-              fontFamily: "var(--font-geist-sans), system-ui, sans-serif",
-              fontSize: "13px",
+            unstyled: true,
+            classNames: {
+              toast: "tt-toast",
+              title: "tt-title",
+              description: "tt-description",
+              icon: "tt-icon",
+              closeButton: "tt-close",
             },
           }}
         />
