@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local design-brief workspace (snapshots, mockups, scratch code)
+    ".design-brief/**",
   ]),
 ]);
 

@@ -86,7 +86,6 @@ export function ExtractionPending({
   const triggered = useRef(false);
   const startRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
-  const finishedRef = useRef(false);
 
   // Kick off the real server extraction
   useEffect(() => {
@@ -136,7 +135,6 @@ export function ExtractionPending({
     else if (ev.type === "log") state.logs.push({ at: ev.at, msg: ev.msg });
     else if (ev.type === "stage") state.stage = ev.stage;
   }
-  finishedRef.current = state.stage === "done";
 
   if (error) {
     return (

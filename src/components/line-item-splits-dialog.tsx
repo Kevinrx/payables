@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Plus, Tag, Trash2, Wand2, X } from "lucide-react";
 import {
   CATEGORIES,
@@ -47,10 +47,6 @@ export function LineItemSplitsDialog({
   onSave: (splits: LineItemSplit[] | null) => void;
 }) {
   const [drafts, setDrafts] = useState<Draft[]>(() => toDrafts(initial));
-
-  useEffect(() => {
-    if (open) setDrafts(toDrafts(initial));
-  }, [open, initial]);
 
   const totalPct = drafts.reduce((sum, d) => sum + (parseFloat(d.pct) || 0), 0);
   const totalBps = Math.round(totalPct * 100);

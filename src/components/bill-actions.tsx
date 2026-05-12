@@ -84,7 +84,7 @@ export function BillActions({ bill }: { bill: BillDetail }) {
         )}
       </div>
 
-      <SchedulePaymentDialog open={scheduleOpen} onOpenChange={setScheduleOpen} bill={bill} />
+      {scheduleOpen && <SchedulePaymentDialog onOpenChange={setScheduleOpen} bill={bill} />}
       <RepeatBillDialog open={repeatOpen} onOpenChange={setRepeatOpen} bill={bill} />
     </>
   );

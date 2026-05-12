@@ -138,7 +138,7 @@ export function RepeatBillDialog({
                   required
                 />
                 <p className="text-[11.5px] text-ink-faint">
-                  Between 1 and 24. We'll create draft bills you can review later.
+                  Between 1 and 24. We&apos;ll create draft bills you can review later.
                 </p>
               </label>
 
@@ -146,7 +146,7 @@ export function RepeatBillDialog({
                 className="rounded-lg p-3 text-[12.5px] leading-relaxed"
                 style={{ background: "var(--brand-soft)", color: "var(--ink-2)" }}
               >
-                <strong style={{ color: "var(--brand)" }}>Heads up:</strong> we'll create{" "}
+                <strong style={{ color: "var(--brand)" }}>Heads up:</strong> we&apos;ll create{" "}
                 <span className="tabular font-mono">{count}</span> {frequency} draft{count > 1 ? "s" : ""}{" "}
                 starting{" "}
                 {frequency === "monthly"

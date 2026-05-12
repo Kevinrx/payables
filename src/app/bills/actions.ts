@@ -440,7 +440,7 @@ export async function schedulePayment(
       return { ok: false, error: `Cannot schedule payment for a bill in status ${bill.status}` };
     }
 
-    const paymentId = await db.transaction(async (tx) => {
+    await db.transaction(async (tx) => {
       const [pay] = await tx
         .insert(payments)
         .values({
@@ -465,7 +465,6 @@ export async function schedulePayment(
           amountCents: parsed.data.amountCents,
         },
       });
-      return pay.id;
     });
 
     revalidatePath(`/bills/${billId}`);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Banknote, CreditCard, FileText, Loader2, Send, X } from "lucide-react";
 import { toast } from "sonner";
@@ -20,32 +20,24 @@ const METHODS = [
   { id: "card" as const, label: "Card", sub: "Same-day, 2.9% fee", icon: CreditCard },
 ];
 
+// Caller renders this dialog conditionally on open state so the
+// component unmounts/remounts and useState initializers handle reset.
 export function SchedulePaymentDialog({
-  open,
   onOpenChange,
   bill,
 }: {
-  open: boolean;
   onOpenChange: (v: boolean) => void;
   bill: BillDetail;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [date, setDate] = useState(defaultPayDate());
+  const [date, setDate] = useState(defaultPayDate);
   const [method, setMethod] = useState<"ach" | "check" | "card">(
     bill.vendor?.defaultPaymentMethod ?? "ach"
   );
   const [amountDollars, setAmountDollars] = useState(
     ((bill.totalCents ?? 0) / 100).toFixed(2)
   );
-
-  useEffect(() => {
-    if (open) {
-      setDate(defaultPayDate());
-      setMethod(bill.vendor?.defaultPaymentMethod ?? "ach");
-      setAmountDollars(((bill.totalCents ?? 0) / 100).toFixed(2));
-    }
-  }, [open, bill]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -71,8 +63,6 @@ export function SchedulePaymentDialog({
       }
     });
   }
-
-  if (!open) return null;
 
   return (
     <div
