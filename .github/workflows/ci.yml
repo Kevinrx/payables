@@ -14,9 +14,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      # Match the npm version the lockfile was authored with (>= 11).
-      - run: npm install -g npm@11
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - run: npm run lint
       - run: npm test
       - run: npm run build
