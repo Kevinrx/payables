@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ChevronRight, Plus, Search } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 import { NewVendorDialog } from "./new-vendor-dialog";
+import { VendorAvatar } from "./vendor-avatar";
+import { MethodPill } from "./method-pill";
 
 export type VendorRow = {
   id: string;
@@ -109,7 +111,6 @@ export function VendorsList({ rows }: { rows: VendorRow[] }) {
 }
 
 function VendorRowItem({ v }: { v: VendorRow }) {
-  const initials = getInitials(v.name);
   const hasPaid = v.paidCents > 0;
   const hasOutstanding = v.outstandingCents > 0;
   const detailUrl = `/vendors/${v.id}`;
@@ -124,17 +125,7 @@ function VendorRowItem({ v }: { v: VendorRow }) {
           aria-label={`Open ${v.name}`}
           className="flex items-center gap-3 before:absolute before:inset-0 before:content-['']"
         >
-          <span
-            className="grid h-9 w-9 flex-none place-items-center rounded-md text-[11px] font-semibold uppercase"
-            style={{
-              fontFamily: "var(--font-geist-mono), monospace",
-              background: "var(--paper-sunken)",
-              color: "var(--ink-2)",
-              border: "1px solid var(--rule)",
-            }}
-          >
-            {initials}
-          </span>
+          <VendorAvatar name={v.name} size="sm" />
           <div className="min-w-0">
             <div className="truncate text-[13.5px] font-medium group-hover:underline">
               {v.name}
@@ -162,17 +153,7 @@ function VendorRowItem({ v }: { v: VendorRow }) {
       </td>
       <td className="px-4 py-3">
         {v.defaultPaymentMethod ? (
-          <span
-            className="inline-flex items-center rounded-md px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.08em]"
-            style={{
-              fontFamily: "var(--font-geist-mono), monospace",
-              background: "var(--paper-sunken)",
-              color: "var(--ink-2)",
-              border: "1px solid var(--rule)",
-            }}
-          >
-            {v.defaultPaymentMethod}
-          </span>
+          <MethodPill method={v.defaultPaymentMethod} size="md" />
         ) : (
           <span className="text-[11.5px] text-ink-fainter">—</span>
         )}
@@ -190,7 +171,6 @@ function VendorRowItem({ v }: { v: VendorRow }) {
 }
 
 function VendorMobileCard({ v }: { v: VendorRow }) {
-  const initials = getInitials(v.name);
   const hasOutstanding = v.outstandingCents > 0;
   const detailUrl = `/vendors/${v.id}`;
   return (
@@ -200,17 +180,7 @@ function VendorMobileCard({ v }: { v: VendorRow }) {
         aria-label={`Open ${v.name}`}
         className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-paper-sunken"
       >
-        <span
-          className="grid h-10 w-10 flex-none place-items-center rounded-md text-[12px] font-semibold uppercase"
-          style={{
-            fontFamily: "var(--font-geist-mono), monospace",
-            background: "var(--paper-sunken)",
-            color: "var(--ink-2)",
-            border: "1px solid var(--rule)",
-          }}
-        >
-          {initials}
-        </span>
+        <VendorAvatar name={v.name} size="md" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
             <span className="truncate text-[14px] font-medium">{v.name}</span>
@@ -226,19 +196,7 @@ function VendorMobileCard({ v }: { v: VendorRow }) {
               {v.email ?? `${v.billCount} ${v.billCount === 1 ? "bill" : "bills"}`}
             </span>
             <div className="flex items-center gap-2 whitespace-nowrap">
-              {v.defaultPaymentMethod && (
-                <span
-                  className="rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-[0.08em]"
-                  style={{
-                    fontFamily: "var(--font-geist-mono), monospace",
-                    background: "var(--paper-sunken)",
-                    color: "var(--ink-2)",
-                    border: "1px solid var(--rule)",
-                  }}
-                >
-                  {v.defaultPaymentMethod}
-                </span>
-              )}
+              <MethodPill method={v.defaultPaymentMethod} size="sm" />
               {v.email && (
                 <span className="font-mono tabular">
                   {v.billCount} {v.billCount === 1 ? "bill" : "bills"}
@@ -254,11 +212,4 @@ function VendorMobileCard({ v }: { v: VendorRow }) {
       </Link>
     </li>
   );
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "??";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
 }

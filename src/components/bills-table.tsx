@@ -1,31 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import {
-  ArrowUpDown,
-  ChevronRight,
-  Search,
-  Inbox,
-  Repeat,
-} from "lucide-react";
+import { ArrowUpDown, Search } from "lucide-react";
 import type { BillStatus } from "@/db/schema";
-import { StatusBadge } from "./status-badge";
-import { cn, daysUntilDue, formatDate, formatMoney } from "@/lib/utils";
+import { BillRow, BILL_ROW_GRID_TEMPLATE, type BillRowData } from "./bill-row";
+import { BillsEmptyState } from "./bills-empty-state";
+import { cn, daysUntilDue } from "@/lib/utils";
 
-type Row = {
-  id: string;
-  invoiceNumber: string | null;
+type Row = BillRowData & {
   invoiceDate: string | null;
-  dueDate: string | null;
-  totalCents: number | null;
-  currency: string;
-  status: BillStatus;
-  notes: string | null;
   vendorId: string | null;
-  vendorName: string | null;
-  parentBillId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -135,7 +120,7 @@ export function BillsTable({ rows }: { rows: Row[] }) {
       <div className="surface mt-3.5 overflow-hidden">
         <div
           className="hidden items-center gap-4 border-b border-border bg-paper-sunken px-[18px] py-2.5 sm:grid"
-          style={{ gridTemplateColumns: "minmax(0, 1.6fr) 1fr 1.2fr 1fr auto 28px" }}
+          style={{ gridTemplateColumns: BILL_ROW_GRID_TEMPLATE }}
         >
           <HeaderCell active={sortKey === "vendor"} dir={sortDir} onClick={() => toggleSort("vendor")}>
             Vendor
@@ -157,7 +142,7 @@ export function BillsTable({ rows }: { rows: Row[] }) {
         </div>
 
         {filtered.length === 0 ? (
-          <EmptyState hasFilters={statusFilter !== "all" || search.length > 0} />
+          <BillsEmptyState hasFilters={statusFilter !== "all" || search.length > 0} />
         ) : (
           filtered.map((row) => <BillRow key={row.id} row={row} />)
         )}
@@ -170,8 +155,8 @@ function FilterChips({
   value,
   onChange,
 }: {
-  value: typeof STATUS_FILTERS[number]["id"];
-  onChange: (v: typeof STATUS_FILTERS[number]["id"]) => void;
+  value: FilterId;
+  onChange: (v: FilterId) => void;
 }) {
   return (
     <div className="tabs">
@@ -221,166 +206,5 @@ function HeaderCell({
       )}
       {active && <span className="sr-only">{dir}</span>}
     </button>
-  );
-}
-
-function BillRow({ row }: { row: Row }) {
-  const days = daysUntilDue(row.dueDate);
-  const isOverdue = days !== null && days < 0 && row.status !== "paid" && row.status !== "void";
-  const isDueSoon =
-    days !== null && days >= 0 && days <= 7 && row.status !== "paid" && row.status !== "void";
-
-  const dueLabel =
-    days !== null && row.status !== "paid" && row.status !== "void"
-      ? isOverdue
-        ? `${Math.abs(days)}d overdue`
-        : days === 0
-        ? "Due today"
-        : `in ${days}d`
-      : null;
-  const dueColor = isOverdue
-    ? "var(--danger-strong)"
-    : isDueSoon
-    ? "var(--warn-strong)"
-    : "var(--ink-fainter)";
-
-  return (
-    <Link
-      href={`/bills/${row.id}`}
-      className="group relative block border-b border-border bg-surface transition-colors last:border-b-0 hover:bg-surface-hover"
-    >
-      {/* Overdue accent stripe — architecture, not decoration */}
-      {isOverdue && (
-        <span
-          aria-hidden
-          className="absolute left-0 top-0 bottom-0 w-[3px]"
-          style={{ background: "var(--danger)" }}
-        />
-      )}
-
-      {/* Desktop layout */}
-      <div
-        className="hidden items-center gap-4 px-[18px] py-3.5 sm:grid"
-        style={{ gridTemplateColumns: "minmax(0, 1.6fr) 1fr 1.2fr 1fr auto 28px" }}
-      >
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span
-              className={cn(
-                "truncate text-[14px] font-medium tracking-tight",
-                row.vendorName ? "text-ink" : "text-ink-faint"
-              )}
-            >
-              {row.vendorName ?? "No vendor"}
-            </span>
-            {row.parentBillId && (
-              <span
-                title="Recurring bill"
-                className="grid h-4 w-4 place-items-center rounded bg-paper-sunken text-ink-faint flex-none"
-              >
-                <Repeat className="h-2.5 w-2.5" />
-              </span>
-            )}
-          </div>
-          {row.notes && (
-            <div className="mt-0.5 truncate text-xs text-ink-faint">{row.notes}</div>
-          )}
-        </div>
-
-        <div className="font-mono text-xs text-ink-faint tabular">
-          {row.invoiceNumber ?? "—"}
-        </div>
-
-        <div>
-          <div className="text-[13px] tabular">{formatDate(row.dueDate)}</div>
-          {dueLabel && (
-            <div
-              className="mt-0.5 font-mono text-[11.5px] tracking-tight"
-              style={{ color: dueColor }}
-            >
-              {dueLabel}
-            </div>
-          )}
-        </div>
-
-        <div className="text-right font-mono text-[14px] font-medium tabular tracking-tight">
-          {formatMoney(row.totalCents, row.currency)}
-        </div>
-
-        <div>
-          <StatusBadge status={isOverdue ? "overdue" : row.status} />
-        </div>
-
-        <div className="grid place-items-center text-ink-faint opacity-0 transition-opacity group-hover:opacity-100">
-          <ChevronRight className="h-3.5 w-3.5" />
-        </div>
-      </div>
-
-      {/* Mobile layout */}
-      <div className="flex items-start gap-3 px-4 py-3 sm:hidden">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span
-              className={cn(
-                "truncate text-[14px] font-medium tracking-tight",
-                row.vendorName ? "text-ink" : "text-ink-faint"
-              )}
-            >
-              {row.vendorName ?? "No vendor"}
-            </span>
-            {row.parentBillId && (
-              <span
-                title="Recurring bill"
-                className="grid h-4 w-4 flex-none place-items-center rounded bg-paper-sunken text-ink-faint"
-              >
-                <Repeat className="h-2.5 w-2.5" />
-              </span>
-            )}
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] tabular font-mono text-ink-faint">
-            {row.invoiceNumber && <span>{row.invoiceNumber}</span>}
-            {row.invoiceNumber && (
-              <span aria-hidden style={{ color: "var(--ink-fainter)" }}>·</span>
-            )}
-            <span>{formatDate(row.dueDate)}</span>
-            {dueLabel && (
-              <>
-                <span aria-hidden style={{ color: "var(--ink-fainter)" }}>·</span>
-                <span style={{ color: dueColor }}>{dueLabel}</span>
-              </>
-            )}
-          </div>
-          <div className="mt-1.5">
-            <StatusBadge status={isOverdue ? "overdue" : row.status} />
-          </div>
-        </div>
-        <div className="text-right font-mono text-[15px] font-medium tabular tracking-tight whitespace-nowrap">
-          {formatMoney(row.totalCents, row.currency)}
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function EmptyState({ hasFilters }: { hasFilters: boolean }) {
-  return (
-    <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-      <div className="grid h-12 w-12 place-items-center rounded-full bg-paper-sunken text-ink-faint">
-        <Inbox className="h-5 w-5" />
-      </div>
-      <h3 className="mt-3 text-sm font-medium">
-        {hasFilters ? "No bills match your filters" : "No bills yet"}
-      </h3>
-      <p className="mt-1 max-w-xs text-sm text-ink-faint">
-        {hasFilters
-          ? "Try clearing the search or status filter."
-          : "Upload an invoice to get started — we'll extract the details with AI."}
-      </p>
-      {!hasFilters && (
-        <Link href="/bills/new" className="btn btn-brand mt-4">
-          Upload your first invoice
-        </Link>
-      )}
-    </div>
   );
 }

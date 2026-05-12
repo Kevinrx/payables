@@ -1,8 +1,18 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import type { BillStatus } from "@/db/schema";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+// ─── Vendor name → monogram ─────────────────────────────────────────
+
+export function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "??";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
 // ─── Money ──────────────────────────────────────────────────────────
@@ -68,3 +78,48 @@ export const AGING_BUCKET_LABELS: Record<AgingBucket, string> = {
   "61-90": "61–90 days",
   "90+": "90+ days",
 };
+
+// ─── Due-state derivation ───────────────────────────────────────────
+// One canonical helper for "is this bill overdue / due soon, and what
+// label and color should we paint?". Paid/void bills are inert.
+
+export type DueState = {
+  days: number | null;       // signed; negative = overdue
+  daysAbs: number | null;    // absolute value, or null
+  isOverdue: boolean;
+  isDueSoon: boolean;        // 0..7 days from due, inclusive
+  label: string | null;      // "Xd overdue" | "Due today" | "in Xd"
+  color: string;             // CSS var for label color
+};
+
+export function getDueState(
+  dueDate: string | Date | null | undefined,
+  status: BillStatus
+): DueState {
+  const days = daysUntilDue(dueDate);
+  const inactive = status === "paid" || status === "void";
+  const isOverdue = days !== null && days < 0 && !inactive;
+  const isDueSoon = days !== null && days >= 0 && days <= 7 && !inactive;
+
+  let label: string | null = null;
+  if (days !== null && !inactive) {
+    if (isOverdue) label = `${Math.abs(days)}d overdue`;
+    else if (days === 0) label = "Due today";
+    else label = `in ${days}d`;
+  }
+
+  const color = isOverdue
+    ? "var(--danger-strong)"
+    : isDueSoon
+    ? "var(--warn-strong)"
+    : "var(--ink-fainter)";
+
+  return {
+    days,
+    daysAbs: days === null ? null : Math.abs(days),
+    isOverdue,
+    isDueSoon,
+    label,
+    color,
+  };
+}

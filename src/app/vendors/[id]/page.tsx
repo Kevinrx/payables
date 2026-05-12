@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ChevronRight, Mail } from "lucide-react";
 import { getDemoOrgId, getVendorById, type VendorDetail } from "@/db/queries";
 import { StatusBadge } from "@/components/status-badge";
-import { daysUntilDue, formatDate, formatMoney } from "@/lib/utils";
+import { VendorAvatar } from "@/components/vendor-avatar";
+import { MethodPill } from "@/components/method-pill";
+import { formatDate, formatMoney, getDueState } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +19,6 @@ export default async function VendorDetailPage({
   const data = await getVendorById(id, orgId);
   if (!data) notFound();
 
-  const initials = getInitials(data.vendor.name);
-
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-7">
       <Link href="/vendors" className="btn btn-ghost btn-sm -ml-2">
@@ -29,17 +29,7 @@ export default async function VendorDetailPage({
       {/* Hero */}
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3 min-w-0 sm:gap-4">
-          <span
-            className="grid h-12 w-12 flex-none place-items-center rounded-md text-[13px] font-semibold uppercase sm:h-14 sm:w-14 sm:text-[15px]"
-            style={{
-              fontFamily: "var(--font-geist-mono), monospace",
-              background: "var(--paper-sunken)",
-              color: "var(--ink-2)",
-              border: "1px solid var(--rule)",
-            }}
-          >
-            {initials}
-          </span>
+          <VendorAvatar name={data.vendor.name} size="lg" />
           <div className="min-w-0">
             <span className="micro">Vendor</span>
             <h1 className="mt-1 truncate text-[22px] font-semibold tracking-tight sm:text-[28px]">
@@ -55,19 +45,7 @@ export default async function VendorDetailPage({
                   {data.vendor.email}
                 </a>
               )}
-              {data.vendor.defaultPaymentMethod && (
-                <span
-                  className="inline-flex items-center rounded-md px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.08em]"
-                  style={{
-                    fontFamily: "var(--font-geist-mono), monospace",
-                    background: "var(--paper-sunken)",
-                    color: "var(--ink-2)",
-                    border: "1px solid var(--rule)",
-                  }}
-                >
-                  {data.vendor.defaultPaymentMethod}
-                </span>
-              )}
+              <MethodPill method={data.vendor.defaultPaymentMethod} size="md" />
             </div>
           </div>
         </div>
@@ -133,9 +111,7 @@ export default async function VendorDetailPage({
               </thead>
               <tbody>
                 {data.bills.map((b) => {
-                  const days = daysUntilDue(b.dueDate);
-                  const isOverdue =
-                    days !== null && days < 0 && b.status !== "paid" && b.status !== "void";
+                  const due = getDueState(b.dueDate, b.status);
                   const billUrl = `/bills/${b.id}?from=vendor:${data.vendor.id}`;
                   return (
                     <tr
@@ -154,18 +130,12 @@ export default async function VendorDetailPage({
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-[13px] tabular">{formatDate(b.dueDate)}</div>
-                        {days !== null && b.status !== "paid" && b.status !== "void" && (
+                        {due.label && (
                           <div
                             className="mt-0.5 text-[11px] tabular"
-                            style={{
-                              color: isOverdue ? "var(--danger)" : "var(--ink-faint)",
-                            }}
+                            style={{ color: due.color }}
                           >
-                            {isOverdue
-                              ? `${Math.abs(days)}d overdue`
-                              : days === 0
-                              ? "Due today"
-                              : `${days}d to due`}
+                            {due.label}
                           </div>
                         )}
                       </td>
@@ -173,7 +143,7 @@ export default async function VendorDetailPage({
                         {b.totalCents !== null ? formatMoney(b.totalCents) : "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <StatusBadge status={isOverdue ? "overdue" : b.status} />
+                        <StatusBadge status={due.isOverdue ? "overdue" : b.status} />
                       </td>
                       <td className="px-3 py-3 text-right">
                         <span
@@ -193,9 +163,7 @@ export default async function VendorDetailPage({
           {/* Mobile cards */}
           <ul className="divide-y sm:hidden" style={{ borderColor: "var(--rule-faint)" }}>
             {data.bills.map((b) => {
-              const days = daysUntilDue(b.dueDate);
-              const isOverdue =
-                days !== null && days < 0 && b.status !== "paid" && b.status !== "void";
+              const due = getDueState(b.dueDate, b.status);
               const billUrl = `/bills/${b.id}?from=vendor:${data.vendor.id}`;
               return (
                 <li key={b.id}>
@@ -214,25 +182,15 @@ export default async function VendorDetailPage({
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-ink-faint">
                         <span className="tabular">Due {formatDate(b.dueDate)}</span>
-                        {days !== null && b.status !== "paid" && b.status !== "void" && (
+                        {due.label && (
                           <>
                             <span aria-hidden style={{ color: "var(--ink-fainter)" }}>·</span>
-                            <span
-                              style={{
-                                color: isOverdue ? "var(--danger)" : "var(--ink-faint)",
-                              }}
-                            >
-                              {isOverdue
-                                ? `${Math.abs(days)}d overdue`
-                                : days === 0
-                                ? "Due today"
-                                : `${days}d to due`}
-                            </span>
+                            <span style={{ color: due.color }}>{due.label}</span>
                           </>
                         )}
                       </div>
                       <div className="mt-1.5">
-                        <StatusBadge status={isOverdue ? "overdue" : b.status} />
+                        <StatusBadge status={due.isOverdue ? "overdue" : b.status} />
                       </div>
                     </div>
                   </Link>
@@ -288,11 +246,4 @@ function statusBreakdown(byStatus: Record<string, number>): string {
     .filter((s) => byStatus[s])
     .map((s) => `${byStatus[s]} ${s.replace("_", " ")}`);
   return parts.length > 0 ? parts.join(" · ") : "—";
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "??";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
 }
