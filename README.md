@@ -11,7 +11,7 @@ A small, opinionated payables product inspired by [Ramp Bill Pay](https://suppor
 1. Open https://trashlab-payables.vercel.app → click around the seeded bills, try filtering by status
 2. Click **New bill** → tap one of the **sample invoice chips** (Acme Cloud / Northwind Logistics / Globex Supplies) for a one-click demo, or drop your own PDF / one from the [`samples/`](./samples) folder
 3. Watch the form populate from Claude vision in ~6 seconds — edit anything, approve, schedule a payment, mark paid
-4. Hit **Import CSV** in the bills header → drop [`samples/bulk-import.csv`](./samples/bulk-import.csv) to import 8 bills at once
+4. Hit **Import CSV** in the bills header → tap the **8-bill sample** chip (or drop [`samples/bulk-import.csv`](./samples/bulk-import.csv)) to import 8 bills at once
 5. Open **Aging** in the nav to see overdue bills bucketed by vendor; the red callout offers **Export CSV** and a **Review overdue** deep-link into the bills filter
 6. Open **Vendors** → click any row to drill into a vendor (outstanding/paid/total stats and every bill they've ever sent). The "Back" button on those bills returns you to the vendor, not to the list — works as you'd expect on mobile too
 

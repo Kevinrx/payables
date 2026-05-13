@@ -2,10 +2,19 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, FileUp, Loader2, Upload, X } from "lucide-react";
+import { AlertTriangle, FileUp, Loader2, Sparkles, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import Papa from "papaparse";
 import { importBillsFromCsv } from "@/app/bills/actions";
+
+// Bundled sample served from /public/samples/. Same pattern as the PDF
+// chips on /bills/new — gives reviewers a known-good CSV to feel out
+// the flow before bringing their own spreadsheet.
+const SAMPLE_CSV = {
+  url: "/samples/bulk-import.csv",
+  filename: "bulk-import.csv",
+  label: "8-bill sample",
+};
 
 const REQUIRED_COLUMNS = ["vendor_name", "total"] as const;
 const KNOWN_COLUMNS = [
@@ -61,6 +70,24 @@ export function CsvImporter() {
   const [errors, setErrors] = useState<string[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [loadingSample, setLoadingSample] = useState(false);
+
+  async function loadSample() {
+    if (loadingSample || isPending) return;
+    setLoadingSample(true);
+    try {
+      const res = await fetch(SAMPLE_CSV.url);
+      if (!res.ok) throw new Error(`Sample fetch failed (${res.status})`);
+      const blob = await res.blob();
+      handleFile(new File([blob], SAMPLE_CSV.filename, { type: "text/csv" }));
+    } catch (e) {
+      toast.error("Couldn't load sample", {
+        description: e instanceof Error ? e.message : "Unknown error",
+      });
+    } finally {
+      setLoadingSample(false);
+    }
+  }
 
   function handleFile(f: File) {
     if (!f.name.toLowerCase().endsWith(".csv") && f.type !== "text/csv") {
@@ -193,6 +220,31 @@ export function CsvImporter() {
           }}
         />
       </label>
+
+      {/* One-click sample CSV — mirrors the PDF chip pattern on /bills/new. */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="micro flex items-center gap-1.5">
+          <Sparkles className="h-3 w-3" style={{ color: "var(--brand)" }} />
+          Or try a sample
+        </span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            loadSample();
+          }}
+          disabled={loadingSample || isPending}
+          className="btn btn-secondary btn-sm"
+          title={`Load ${SAMPLE_CSV.filename}`}
+        >
+          {loadingSample ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <FileUp className="h-3 w-3" />
+          )}
+          {SAMPLE_CSV.label}
+        </button>
+      </div>
 
       {file && (
         <div className="surface fade-up mt-3 flex items-center justify-between px-3.5 py-3">

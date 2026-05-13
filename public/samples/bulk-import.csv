@@ -1,0 +1,9 @@
+vendor_name,invoice_number,invoice_date,due_date,total,currency,notes
+Acme Cloud Services,ACM-2026-0712,2026-07-01,2026-07-31,1842.50,USD,Q3 compute
+Sprocket Industries,SPK-2026-08,2026-07-10,2026-08-09,3450.00,USD,Custom widget order
+Initech Software,INV-2026-0815,2026-07-15,2026-08-14,4500.00,USD,Annual seat upgrade
+Globex Office Supplies,GLX-771589,2026-07-20,2026-08-19,892.40,USD,Office snacks restock
+DataMesh Analytics,DMA-INV-2071,2026-07-22,2026-08-21,8200.00,USD,Q3 data warehouse
+Cooper Legal Services,COOP-2026-019,2026-07-25,2026-09-23,12500.00,USD,Q2 contract review
+Quantum Cleaning Co,QC-44231,2026-07-28,2026-08-12,650.00,USD,
+Hooli Cloud,HC-INV-91402,2026-08-01,2026-08-31,3175.00,USD,Managed K8s - August
