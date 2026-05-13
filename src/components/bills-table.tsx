@@ -106,7 +106,9 @@ export function BillsTable({ rows }: { rows: Row[] }) {
           />
         </div>
 
-        <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 hide-scroll sm:mx-0 sm:px-0 sm:overflow-visible">
+        {/* On mobile let the chip cluster wrap to a second line (Scheduled +
+            Paid were getting cut off before). Desktop still fits on one row. */}
+        <div className="w-full sm:w-auto">
           <FilterChips value={statusFilter} onChange={setStatusFilter} />
         </div>
 

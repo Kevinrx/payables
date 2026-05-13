@@ -292,6 +292,7 @@ body {
 /* ----- Tabs ----- */
 .tabs {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 2px;
   padding: 3px;

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Save, Tag, Trash2 } from "lucide-react";
+import { AlertTriangle, Loader2, Plus, Save, Tag, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { BillDetail } from "@/db/queries";
 import { updateBill } from "@/app/bills/actions";
@@ -58,6 +58,26 @@ export function BillEditor({ bill }: { bill: BillDetail }) {
   const lineItemsTotal = useMemo(() => {
     return lineItems.reduce((sum, li) => sum + dollarsToCents(li.amount), 0);
   }, [lineItems]);
+
+  // Persistent reminder of which AP-expected fields are still blank, but only
+  // for bills that came from AI extraction (the toast is transient — this is
+  // the inline cue that stays until the user actually fills them in). It
+  // re-evaluates against live form state so it auto-clears as the user types.
+  const cameFromExtraction = bill.extractedJson != null;
+  const missingFields = useMemo(() => {
+    if (!cameFromExtraction) return [];
+    const missing: string[] = [];
+    if (!vendorName.trim()) missing.push("vendor");
+    if (!invoiceNumber.trim()) missing.push("invoice number");
+    if (!invoiceDate) missing.push("invoice date");
+    if (!dueDate) missing.push("due date");
+    if (!dollarsToCents(total)) missing.push("total");
+    const realLines = lineItems.filter(
+      (li) => li.description.trim() && dollarsToCents(li.amount) > 0
+    );
+    if (realLines.length === 0) missing.push("line items");
+    return missing;
+  }, [cameFromExtraction, vendorName, invoiceNumber, invoiceDate, dueDate, total, lineItems]);
 
   function updateLine(key: string, patch: Partial<LineItemDraft>) {
     setLineItems((items) =>
@@ -126,6 +146,8 @@ export function BillEditor({ bill }: { bill: BillDetail }) {
 
   return (
     <div className="flex flex-col gap-5">
+      {missingFields.length > 0 && <PartialExtractionBanner fields={missingFields} />}
+
       {/* Bill details */}
       <section className="surface overflow-hidden">
         <div className="flex items-center justify-between border-b border-border px-[18px] py-3.5">
@@ -346,6 +368,30 @@ function MoneyInput({
         onChange={(e) => onChange(e.target.value)}
         className={`input tabular font-mono pl-6 ${emphasize ? "font-semibold" : ""}`}
       />
+    </div>
+  );
+}
+
+function PartialExtractionBanner({ fields }: { fields: string[] }) {
+  return (
+    <div
+      role="status"
+      className="flex items-start gap-2.5 rounded-lg px-4 py-3 text-[13px]"
+      style={{ background: "var(--warn-soft)", color: "var(--ink-2)" }}
+    >
+      <AlertTriangle
+        className="mt-0.5 h-3.5 w-3.5 shrink-0"
+        style={{ color: "var(--warn-strong)" }}
+      />
+      <div className="min-w-0">
+        <div className="font-medium" style={{ color: "var(--warn-strong)" }}>
+          Some fields couldn&apos;t be auto-detected
+        </div>
+        <div className="mt-0.5 text-ink-faint">
+          Please review and fill in:{" "}
+          <span className="font-medium text-ink-2">{fields.join(", ")}</span>.
+        </div>
+      </div>
     </div>
   );
 }
