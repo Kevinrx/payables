@@ -114,6 +114,13 @@
 
 * { border-color: var(--rule); }
 
+/* Reserve scrollbar space so a tall page (e.g. /bills "All" tab) and a
+   short one (filtered to a single status) don't reflow the viewport
+   width horizontally as the scrollbar appears/disappears. Invisible
+   on ultra-wide screens because the page already overflows; visible
+   on a 24" monitor where filtering toggles the scrollbar. */
+html { scrollbar-gutter: stable; }
+
 html, body { background: var(--paper); color: var(--ink); }
 
 body {
