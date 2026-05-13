@@ -111,7 +111,10 @@ export function BillsTable({ rows }: { rows: Row[] }) {
         </div>
 
         <div className="hidden flex-1 sm:block" />
-        <div className="text-xs text-ink-faint tabular sm:ml-0">
+        {/* min-width + text-right pins this cell's flex-basis so the search
+            bar (flex-1) and filter chips don't shift as the count text
+            changes width between "10 of 10" and "3 of 10". */}
+        <div className="text-xs text-ink-faint tabular sm:ml-0 sm:min-w-[72px] sm:text-right">
           {filtered.length} of {rows.length}
         </div>
       </div>
