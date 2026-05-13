@@ -16,7 +16,10 @@ export type BillRowData = {
   parentBillId: string | null;
 };
 
-const GRID_TEMPLATE = "minmax(0, 1.6fr) 1fr 1.2fr 1fr auto 28px";
+// Status column is a fixed width so the grid doesn't reflow when a filter
+// (e.g. "Approved" only) narrows the pill-set to shorter labels. The width
+// fits the longest label ("Needs review") with breathing room.
+const GRID_TEMPLATE = "minmax(0, 1.6fr) 1fr 1.2fr 1fr 116px 28px";
 
 export function BillRow({ row }: { row: BillRowData }) {
   const due = getDueState(row.dueDate, row.status);

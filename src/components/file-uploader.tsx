@@ -2,17 +2,27 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { FileUp, Loader2, Upload, X } from "lucide-react";
+import { FileUp, Loader2, Sparkles, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 
 const ACCEPTED_MIME = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
 const FORMAT_TAGS = ["PDF", "PNG", "JPEG", "WEBP", "UP TO 10 MB"];
+
+// Bundled sample invoices served from /public/samples/. Letting users one-click
+// a known-good PDF before they upload their own avoids the "first thing I tried
+// failed" demo failure mode.
+const SAMPLE_INVOICES: { url: string; filename: string; label: string }[] = [
+  { url: "/samples/01-acme-cloud.pdf",          filename: "01-acme-cloud.pdf",          label: "Acme Cloud" },
+  { url: "/samples/02-northwind-logistics.pdf", filename: "02-northwind-logistics.pdf", label: "Northwind Logistics" },
+  { url: "/samples/03-globex-supplies.pdf",     filename: "03-globex-supplies.pdf",     label: "Globex Supplies" },
+];
 
 export function FileUploader() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [isDragOver, setDragOver] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [loadingSample, setLoadingSample] = useState<string | null>(null);
 
   function handleFile(f: File) {
     if (!ACCEPTED_MIME.includes(f.type)) {
@@ -33,6 +43,23 @@ export function FileUploader() {
     setDragOver(false);
     const f = e.dataTransfer.files?.[0];
     if (f) handleFile(f);
+  }
+
+  async function loadSample(sample: (typeof SAMPLE_INVOICES)[number]) {
+    if (loadingSample || isPending) return;
+    setLoadingSample(sample.filename);
+    try {
+      const res = await fetch(sample.url);
+      if (!res.ok) throw new Error(`Sample fetch failed (${res.status})`);
+      const blob = await res.blob();
+      handleFile(new File([blob], sample.filename, { type: "application/pdf" }));
+    } catch (e) {
+      toast.error("Couldn't load sample", {
+        description: e instanceof Error ? e.message : "Unknown error",
+      });
+    } finally {
+      setLoadingSample(null);
+    }
   }
 
   function onSubmit() {
@@ -101,6 +128,38 @@ export function FileUploader() {
           }}
         />
       </label>
+
+      {/* Sample chips — let reviewers try a known-good invoice in one click
+          before risking a live demo on their own document. */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="micro flex items-center gap-1.5">
+          <Sparkles className="h-3 w-3" style={{ color: "var(--brand)" }} />
+          Or try a sample
+        </span>
+        {SAMPLE_INVOICES.map((s) => {
+          const loading = loadingSample === s.filename;
+          return (
+            <button
+              key={s.filename}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                loadSample(s);
+              }}
+              disabled={!!loadingSample || isPending}
+              className="btn btn-secondary btn-sm"
+              title={`Load ${s.filename}`}
+            >
+              {loading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <FileUp className="h-3 w-3" />
+              )}
+              {s.label}
+            </button>
+          );
+        })}
+      </div>
 
       {file && (
         <div className="surface fade-up mt-3 flex items-center justify-between px-3.5 py-3">

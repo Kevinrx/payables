@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
+import { toast } from "sonner";
 import { runExtraction } from "@/app/bills/actions";
 import { FilePreview } from "./file-preview";
 
@@ -97,7 +98,20 @@ export function ExtractionPending({
         // Wait for animation to finish (or at least pass the "done" stage)
         // before refreshing, so users see the complete state.
         const remaining = Math.max(0, 6500 - (performance.now() - (startRef.current ?? performance.now())));
-        setTimeout(() => router.refresh(), remaining);
+        setTimeout(() => {
+          // If the model came back with gaps in fields we'd expect on a
+          // normal invoice, prompt the user to review before they hit
+          // approve. Toast fires from the global Toaster so it survives
+          // the router.refresh() that re-renders the page as the editor.
+          const missing = res.data?.missingFields ?? [];
+          if (missing.length > 0) {
+            toast.info("Some fields couldn't be auto-detected", {
+              description: `Please review: ${formatList(missing)}.`,
+              duration: 7000,
+            });
+          }
+          router.refresh();
+        }, remaining);
       } else {
         setError(res.error);
       }
@@ -334,6 +348,13 @@ function ExtractedFieldsPanel({
       </div>
     </div>
   );
+}
+
+function formatList(items: string[]): string {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
 }
 
 function ConsoleLog({ logs }: { logs: { at: number; msg: string }[] }) {

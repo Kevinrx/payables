@@ -163,14 +163,134 @@ function generate(invoice: Invoice, outDir: string) {
   });
 }
 
+// ─── Edge-case "stress test" samples ────────────────────────────────
+//
+// These don't look like the canonical 3 samples. They're deliberately
+// sparse / receipt-shaped / non-invoice-shaped so a reviewer can
+// reproduce the "partial extraction" path (Claude legitimately can't
+// recover fields that aren't on the page) and confirm the new
+// info-toast UX + lenient schema fallback.
+
+type PartialSpec = {
+  filename: string;
+  kind: "receipt" | "scrap" | "blank";
+  vendorName?: string;
+  invoiceDate?: string;
+  total?: number;
+  lineItems?: { description: string; amount: number }[];
+};
+
+const PARTIAL_SAMPLES: PartialSpec[] = [
+  {
+    filename: "test-partial-receipt.pdf",
+    kind: "receipt",
+    vendorName: "Bluestone Coffee Bar",
+    invoiceDate: "2026-05-07",
+    lineItems: [
+      { description: "Drip coffee, large", amount: 4.5 },
+      { description: "Almond croissant",   amount: 5.25 },
+      { description: "Avocado toast",      amount: 12.0 },
+    ],
+    total: 21.75,
+  },
+  {
+    filename: "test-partial-scrap.pdf",
+    kind: "scrap",
+    vendorName: "Marlow & Co.",
+    total: 850,
+  },
+  {
+    filename: "test-not-an-invoice.pdf",
+    kind: "blank",
+  },
+];
+
+function generatePartial(spec: PartialSpec, outDir: string) {
+  return new Promise<void>((resolveDone, reject) => {
+    const doc = new PDFDocument({ size: "LETTER", margin: 60 });
+    const path = resolve(outDir, spec.filename);
+    const stream = createWriteStream(path);
+    doc.pipe(stream);
+
+    if (spec.kind === "receipt") {
+      // Receipt: vendor + date + a few lines + total. No invoice #, no
+      // due date, no tax line. Claude will return nulls for those.
+      doc.fillColor("#0c0a09").fontSize(18).font("Helvetica-Bold").text(spec.vendorName!, { align: "center" });
+      doc.moveDown(0.3);
+      doc.font("Helvetica").fontSize(10).fillColor("#57534e")
+        .text("Thank you for your visit", { align: "center" });
+      doc.moveDown(0.3);
+      doc.text(spec.invoiceDate!, { align: "center" });
+      doc.moveDown(1.5);
+
+      let y = doc.y;
+      for (const li of spec.lineItems!) {
+        doc.font("Helvetica").fontSize(11).fillColor("#0c0a09");
+        doc.text(li.description, 80, y, { width: 320 });
+        doc.text(`$${li.amount.toFixed(2)}`, 400, y, { width: 100, align: "right" });
+        y += 20;
+      }
+      y += 14;
+      doc.moveTo(80, y).lineTo(500, y).strokeColor("#d6d3d1").stroke();
+      y += 12;
+      doc.font("Helvetica-Bold").fontSize(12).fillColor("#0c0a09");
+      doc.text("TOTAL", 80, y);
+      doc.text(`$${spec.total!.toFixed(2)}`, 400, y, { width: 100, align: "right" });
+    } else if (spec.kind === "scrap") {
+      // Scribble-style note. Just a vendor name and an amount owed.
+      // No dates, no invoice #, no line items.
+      doc.fillColor("#0c0a09").fontSize(14).font("Helvetica").text("Note to self:", 80, 100);
+      doc.moveDown(1);
+      doc.fontSize(16).font("Helvetica-Bold").text(`Owe ${spec.vendorName}: $${spec.total!.toFixed(0)}`);
+      doc.moveDown(1);
+      doc.fontSize(11).font("Helvetica").fillColor("#57534e")
+        .text("(pay before end of month)");
+    } else {
+      // "Not an invoice": a blank page with a single irrelevant
+      // paragraph. The extraction should return all-nulls and the
+      // user should land in an empty editor with a toast.
+      doc.fillColor("#0c0a09").fontSize(14).font("Helvetica")
+        .text("Quarterly engineering offsite — agenda", 60, 80);
+      doc.moveDown(1.2);
+      doc.fontSize(11).fillColor("#57534e")
+        .text(
+          "10:00 — kickoff & retro. 11:30 — tech-debt prioritization. " +
+          "13:00 — lunch. 14:00 — architecture review. 16:00 — open mic.",
+          { width: 480 }
+        );
+    }
+
+    doc.end();
+    stream.on("finish", () => resolveDone());
+    stream.on("error", reject);
+  });
+}
+
 async function main() {
-  const outDir = resolve(process.cwd(), "samples");
-  mkdirSync(outDir, { recursive: true });
+  // We write each sample to two locations:
+  //   - /samples/        canonical source, referenced by README + npm scripts
+  //   - /public/samples/ served at /samples/<file> so the upload UI can offer
+  //                      one-click "try a sample" chips
+  const outDirs = [
+    resolve(process.cwd(), "samples"),
+    resolve(process.cwd(), "public", "samples"),
+  ];
+  for (const dir of outDirs) mkdirSync(dir, { recursive: true });
   for (const inv of SAMPLES) {
-    await generate(inv, outDir);
+    for (const dir of outDirs) {
+      await generate(inv, dir);
+    }
     console.log(`✓ ${inv.filename}`);
   }
-  console.log(`\nWrote ${SAMPLES.length} samples to ${outDir}`);
+  for (const spec of PARTIAL_SAMPLES) {
+    for (const dir of outDirs) {
+      await generatePartial(spec, dir);
+    }
+    console.log(`✓ ${spec.filename}  (edge case: ${spec.kind})`);
+  }
+  console.log(
+    `\nWrote ${SAMPLES.length + PARTIAL_SAMPLES.length} samples to ${outDirs.join(", ")}`
+  );
 }
 
 main().catch((err) => {

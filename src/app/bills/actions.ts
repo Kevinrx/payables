@@ -244,7 +244,9 @@ function dollarsToCents(n: number | null | undefined): number | null {
   return Math.round(n * 100);
 }
 
-export async function runExtraction(billId: string): Promise<Result> {
+export async function runExtraction(
+  billId: string
+): Promise<Result<{ missingFields: string[] }>> {
   try {
     const orgId = await getDemoOrgId();
     const bill = await findBillForOrg(billId, orgId);
@@ -254,7 +256,7 @@ export async function runExtraction(billId: string): Promise<Result> {
     }
     if (bill.extractedJson) {
       // Already extracted; nothing to do.
-      return { ok: true };
+      return { ok: true, data: { missingFields: [] } };
     }
 
     // Fetch the file bytes. For local /uploads/ paths we read from disk
@@ -359,9 +361,20 @@ export async function runExtraction(billId: string): Promise<Result> {
       });
     });
 
+    // Flag which "you'd expect this on a normal invoice" fields ended up
+    // null so the UI can surface a toast prompting the user to review.
+    // Subtotal/tax/notes are deliberately excluded — they're optional.
+    const missingFields: string[] = [];
+    if (!vendorId) missingFields.push("vendor");
+    if (!extracted.invoice_number) missingFields.push("invoice number");
+    if (!extracted.invoice_date) missingFields.push("invoice date");
+    if (!extracted.due_date) missingFields.push("due date");
+    if (!totalCents) missingFields.push("total");
+    if (extracted.line_items.length === 0) missingFields.push("line items");
+
     revalidatePath(`/bills/${billId}`);
     revalidatePath("/bills");
-    return { ok: true };
+    return { ok: true, data: { missingFields } };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unknown error" };
   }

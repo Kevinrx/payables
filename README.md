@@ -9,7 +9,7 @@ A small, opinionated payables product inspired by [Ramp Bill Pay](https://suppor
 ## Try it in 30 seconds
 
 1. Open https://trashlab-payables.vercel.app → click around the seeded bills, try filtering by status
-2. Click **New bill** → upload any PDF from the [`samples/`](./samples) folder (or your own invoice)
+2. Click **New bill** → tap one of the **sample invoice chips** (Acme Cloud / Northwind Logistics / Globex Supplies) for a one-click demo, or drop your own PDF / one from the [`samples/`](./samples) folder
 3. Watch the form populate from Claude vision in ~6 seconds — edit anything, approve, schedule a payment, mark paid
 4. Hit **Import CSV** in the bills header → drop [`samples/bulk-import.csv`](./samples/bulk-import.csv) to import 8 bills at once
 5. Open **Aging** in the nav to see overdue bills bucketed by vendor; the red callout offers **Export CSV** and a **Review overdue** deep-link into the bills filter
@@ -405,7 +405,7 @@ The system prompt explicitly tells the model:
 - Use null for missing fields, do not invent
 - If the document is clearly not an invoice, return nulls
 
-After the model returns, we run the args through `ExtractedInvoiceSchema.safeParse()` (Zod). If validation fails, we log the error and the bill stays as draft with the failure recorded in `bill_events`. The UI shows a "Fill in manually" banner.
+After the model returns, we run the args through `ExtractedInvoiceSchema.safeParse()` (Zod). The schema is intentionally lenient: every non-required field is `nullish + catch(null)`, so when the model legitimately omits something (e.g. a tax line on a no-tax invoice) the user still lands in the editor with every field the model *did* return populated and only the genuinely-missing ones blank. Only catastrophic failures (no tool call, schema fully unparseable) flip the bill to draft with the error recorded in `bill_events` and a "Fill in manually" banner.
 
 ## Production hardening I deliberately skipped
 

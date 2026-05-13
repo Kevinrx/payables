@@ -2,27 +2,49 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
 // ─── Output schema (validated with Zod after the model returns) ─────
+//
+// All optional fields use `.nullish()` (string | null | undefined) +
+// transform → null, with a `.catch(null)` fallback. This matters because
+// the tool's required[] only forces vendor_name/currency/total/line_items,
+// so the model is allowed to omit anything else — and Zod-rejecting a
+// partially-populated extraction (e.g. invoice missing a tax line) would
+// throw the whole extraction away. With this schema, the user lands in
+// the editor with every field the model *did* return populated, and only
+// the genuinely-missing ones blank for them to fill in.
+
+const nullableString = z
+  .string()
+  .nullish()
+  .transform((v) => (v && v.length > 0 ? v : null))
+  .catch(null);
+
+const nullableNumber = z
+  .number()
+  .nullish()
+  .transform((v) => (v == null || !Number.isFinite(v) ? null : v))
+  .catch(null);
 
 export const ExtractedInvoiceSchema = z.object({
-  vendor_name: z.string().min(1).nullable(),
-  invoice_number: z.string().nullable(),
-  invoice_date: z.string().nullable(), // YYYY-MM-DD
-  due_date: z.string().nullable(),
-  currency: z.string().default("USD"),
-  subtotal: z.number().nullable(),
-  tax: z.number().nullable(),
-  total: z.number().nullable(),
+  vendor_name: nullableString,
+  invoice_number: nullableString,
+  invoice_date: nullableString, // YYYY-MM-DD
+  due_date: nullableString,
+  currency: z.string().catch("USD").default("USD"),
+  subtotal: nullableNumber,
+  tax: nullableNumber,
+  total: nullableNumber,
   line_items: z
     .array(
       z.object({
         description: z.string().min(1),
-        quantity: z.number().nullable(),
-        unit_price: z.number().nullable(),
+        quantity: nullableNumber,
+        unit_price: nullableNumber,
         amount: z.number(),
       })
     )
+    .catch([])
     .default([]),
-  notes: z.string().nullable().default(null),
+  notes: nullableString,
 });
 
 export type ExtractedInvoice = z.infer<typeof ExtractedInvoiceSchema>;
