@@ -66,7 +66,7 @@ The "wow" moment is the upload-to-extracted-bill flow: drop a PDF, watch it beco
 
 In rough order of build effort:
 
-1. **Bill ingestion via Claude vision OCR** — the differentiator. Drop a PDF or image, Claude Sonnet 4.6 extracts vendor, invoice number, dates, subtotal/tax/total, line items, and notes into a strict JSON schema (enforced with Anthropic tool-use). New vendors are deduped by case-insensitive name and auto-created.
+1. **Bill ingestion via Claude vision OCR** — the differentiator. Drop a PDF or image, Claude Sonnet 4.6 extracts vendor, invoice number, dates, subtotal/tax/total, line items, and notes into a strict JSON schema (enforced with Anthropic tool-use). New vendors are deduped by case-insensitive name and auto-created. The Zod schema is intentionally lenient on optional fields so a partial extraction (missing tax line, no invoice number, etc.) still lands in `needs_review` with whatever Claude *did* recover — paired with a transient info toast naming the gaps and a persistent warn banner inside the editor that auto-clears as the user fills them in. Built-in sample chips on `/bills/new` let reviewers try a known-good invoice in one click before bringing their own.
 2. **Manual bill creation** — when there's no invoice (recurring bills, email-only mentions, back-fill). One-click "Create a bill without an invoice" → empty draft, fill in the editor, same approval flow.
 3. **CSV bulk import** (`/bills/import`) — drop a spreadsheet, get a preview table, hit Import. Per-row validation (skips bad rows with an error list). Vendor dedup runs against the existing org so no duplicates are created. Common header aliases accepted (`vendor` → `vendor_name`, `amount` → `total`, `invoice_no` → `invoice_number`); the page surfaces the canonical column set + aliases up front so users don't have to read code to find them.
 4. **Review and edit** — inline editor on the bill detail page with vendor combobox, dates, totals, and a fully editable line-items table (add/remove rows, auto-compute amount from qty × unit). Saves write a `bill_events` audit row.
@@ -310,7 +310,7 @@ upload ─► draft ─► needs_review ─► approved ─► scheduled ─► 
                                                   (via "Mark paid")
 ```
 
-A successful upload+extract puts the bill in `needs_review`. If extraction fails, the bill stays as `draft` with empty fields and the UI prompts manual entry. Edits while in `draft` or `needs_review` keep the bill in `needs_review`. The forward path (`approve → schedule → pay`) only allows transitions from the immediately preceding state — every action checks status before mutating.
+Any upload+extract that yields *any* parseable fields puts the bill in `needs_review` — the lenient schema means a partial extraction (Claude missed the invoice number, the document had no tax line, etc.) still lands in the editor with whatever was recovered, surfaced by a persistent banner naming the gaps. Only a catastrophic failure (no tool-use block, totally unparseable output) leaves the bill in `draft` with the failure recorded in `bill_events` and a "Fill in manually" banner. Edits while in `draft` or `needs_review` keep the bill in `needs_review`. The forward path (`approve → schedule → pay`) only allows transitions from the immediately preceding state — every action checks status before mutating.
 
 ## End-to-end: how an upload becomes a bill
 
@@ -406,6 +406,8 @@ The system prompt explicitly tells the model:
 - If the document is clearly not an invoice, return nulls
 
 After the model returns, we run the args through `ExtractedInvoiceSchema.safeParse()` (Zod). The schema is intentionally lenient: every non-required field is `nullish + catch(null)`, so when the model legitimately omits something (e.g. a tax line on a no-tax invoice) the user still lands in the editor with every field the model *did* return populated and only the genuinely-missing ones blank. Only catastrophic failures (no tool call, schema fully unparseable) flip the bill to draft with the error recorded in `bill_events` and a "Fill in manually" banner.
+
+The partial-extraction UX is two layers: `runExtraction` returns a `missingFields[]` list (vendor / invoice number / invoice date / due date / total / line items — the things you'd expect on a normal invoice), which `ExtractionPending` turns into a one-shot info toast right after the scan animation. `BillEditor` then recomputes the same list against *live form state* and renders a warn-toned banner above the form that auto-clears as the user fills the gaps — so the cue stays visible long after the toast is gone, but disappears the moment the bill is review-ready.
 
 ## Production hardening I deliberately skipped
 
