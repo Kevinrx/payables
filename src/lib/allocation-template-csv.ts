@@ -1,5 +1,6 @@
 import {
   isSplitsValid,
+  lineItemSplitSchema,
   pctToBps,
   MAX_SPLITS,
   type LineItemSplit,
@@ -90,13 +91,22 @@ export function groupCsvRowsToTemplates(
         rowError = `"${name}": invalid percentage on "${category}"`;
         break;
       }
-      splits.push({
+      const split: LineItemSplit = {
         category,
         department: clean(r.department),
         glAccount: clean(r.gl_account),
         location: clean(r.location),
         percentageBps: pctToBps(pct),
-      });
+      };
+      // Reject category/dimension values that aren't in the chart-of-accounts
+      // lists (matching the editor's <select>s), so an imported value can't end
+      // up rendering blank and getting silently overwritten on the next edit.
+      const check = lineItemSplitSchema.safeParse(split);
+      if (!check.success) {
+        rowError = `"${name}": ${check.error.issues[0]?.message ?? "invalid value"} ("${category}")`;
+        break;
+      }
+      splits.push(split);
     }
 
     if (rowError) {

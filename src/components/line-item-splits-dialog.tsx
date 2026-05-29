@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Sparkles, Tag, X } from "lucide-react";
 import { toast } from "sonner";
 import { createAllocationTemplate } from "@/app/settings/actions";
@@ -9,8 +9,7 @@ import { formatMoney } from "@/lib/utils";
 import {
   SplitRowsEditor,
   type SplitDraft,
-  splitDraftsToSplits,
-  splitDraftsValid,
+  evaluateSplitDrafts,
   toSplitDrafts,
 } from "./split-rows-editor";
 
@@ -42,7 +41,7 @@ export function LineItemSplitsDialog({
   const [saveForFuture, setSaveForFuture] = useState(false);
   const [templateName, setTemplateName] = useState("");
 
-  const valid = splitDraftsValid(drafts);
+  const { splits, valid } = useMemo(() => evaluateSplitDrafts(drafts), [drafts]);
 
   function applyTemplate(id: string) {
     const t = templates.find((x) => x.id === id);
@@ -51,7 +50,6 @@ export function LineItemSplitsDialog({
 
   function handleSave() {
     if (!valid) return;
-    const splits = splitDraftsToSplits(drafts);
     const finalSplits = splits.length > 0 ? splits : null;
 
     // Saving as a template must never block applying the split to the line.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Layers, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -8,8 +8,7 @@ import { createAllocationTemplate } from "@/app/settings/actions";
 import {
   SplitRowsEditor,
   type SplitDraft,
-  splitDraftsToSplits,
-  splitDraftsValid,
+  evaluateSplitDrafts,
   toSplitDrafts,
 } from "./split-rows-editor";
 
@@ -25,7 +24,7 @@ export function NewAllocationTemplateDialog({
   const [name, setName] = useState("");
   const [drafts, setDrafts] = useState<SplitDraft[]>(() => toSplitDrafts(null));
 
-  const valid = splitDraftsValid(drafts);
+  const { splits, valid } = useMemo(() => evaluateSplitDrafts(drafts), [drafts]);
 
   function reset() {
     setName("");
@@ -34,7 +33,6 @@ export function NewAllocationTemplateDialog({
 
   function handleSubmit() {
     if (!name.trim() || !valid) return;
-    const splits = splitDraftsToSplits(drafts);
     startTransition(async () => {
       const res = await createAllocationTemplate({ name: name.trim(), splits });
       if (res.ok) {

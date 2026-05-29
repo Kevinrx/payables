@@ -6,7 +6,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { getDemoOrgId } from "@/db/queries";
 import { canManageTemplates } from "@/lib/permissions";
-import { isSplitsValid, type LineItemSplit } from "@/lib/categories";
+import { isSplitsValid, lineItemSplitSchema, type LineItemSplit } from "@/lib/categories";
 import { groupCsvRowsToTemplates } from "@/lib/allocation-template-csv";
 
 const { allocationTemplates } = schema;
@@ -19,18 +19,10 @@ type Result<T = void> = { ok: true; data?: T } | { ok: false; error: string };
 const NO_PERMISSION =
   "You don't have permission to manage allocation templates";
 
-// ─── Shared split schema (mirrors the updateBill splits contract) ───────
-
+// Reuses the shared per-split schema (category + dimensions validated against
+// the chart-of-accounts lists) so template and bill-editor validation can't drift.
 const splitSchema = z
-  .array(
-    z.object({
-      category: z.string().min(1),
-      department: z.string().nullable().optional(),
-      glAccount: z.string().nullable().optional(),
-      location: z.string().nullable().optional(),
-      percentageBps: z.number().int().min(1).max(10000),
-    })
-  )
+  .array(lineItemSplitSchema)
   .min(1)
   .max(150, "A template can have at most 150 lines")
   .refine(
@@ -62,11 +54,14 @@ export async function createAllocationTemplate(
     const orgId = await getDemoOrgId();
     if (!canManageTemplates(orgId)) return { ok: false, error: NO_PERMISSION };
 
-    // Count + dedup + insert in one transaction so the cap check and the write
-    // can't interleave with a concurrent create (the unique index is the final
-    // backstop for name dedup; this guards the count-based 200 cap).
+    // A plain count-then-insert is racy under READ COMMITTED (two creates can
+    // both read count=199 and both insert -> 201). Take a per-org transaction
+    // advisory lock first so concurrent create/import for the same org serialize
+    // — making the count-based 200 cap actually safe (the unique index remains
+    // the backstop for name dedup). Lock auto-releases at transaction end.
     const result = await db.transaction(
       async (tx): Promise<Result<{ templateId: string }>> => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${orgId}))`);
         const [{ count }] = await tx
           .select({ count: sql<number>`count(*)::int` })
           .from(allocationTemplates)
@@ -165,6 +160,10 @@ export async function importAllocationTemplatesFromCsv(
     let skipped = 0;
 
     await db.transaction(async (tx) => {
+      // Serialize concurrent imports/creates for this org so the `room` budget
+      // (the 200 cap) holds under READ COMMITTED. Released at transaction end.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${orgId}))`);
+
       const existing = await tx
         .select({ name: allocationTemplates.name })
         .from(allocationTemplates)
@@ -173,6 +172,7 @@ export async function importAllocationTemplatesFromCsv(
       const seen = new Set(existing.map((r) => r.name.toLowerCase()));
       let room = MAX_TEMPLATES - existing.length;
 
+      const accepted: { orgId: string; name: string; splits: LineItemSplit[] }[] = [];
       for (const t of templates) {
         const key = t.name.toLowerCase();
         if (seen.has(key)) {
@@ -185,12 +185,15 @@ export async function importAllocationTemplatesFromCsv(
           skippedReasons.push(`"${t.name}": template limit (${MAX_TEMPLATES}) reached`);
           continue;
         }
-        await tx
-          .insert(allocationTemplates)
-          .values({ orgId, name: t.name, splits: t.splits });
+        accepted.push({ orgId, name: t.name, splits: t.splits });
         seen.add(key);
         room--;
         created++;
+      }
+
+      // One multi-row insert instead of N round-trips.
+      if (accepted.length > 0) {
+        await tx.insert(allocationTemplates).values(accepted);
       }
     });
 

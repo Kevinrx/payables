@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 /**
  * Hardcoded category list for line-item splits. In a real product these would
  * come from the customer's chart of accounts (synced from QBO/Xero/Netsuite).
@@ -131,3 +133,42 @@ export function formatSplitSummary(splits: LineItemSplit[] | null | undefined): 
     .map((s) => `${bpsToPct(s.percentageBps).toFixed(0)}% ${s.category}`)
     .join(" · ");
 }
+
+// ─── Validation (single source of truth, shared across actions) ─────
+
+const inList =
+  (list: readonly string[]) =>
+  (v: string | null | undefined): boolean =>
+    v == null || v === "" || list.includes(v);
+
+/**
+ * Zod schema for one split slice — the single source of truth shared by the
+ * bill editor's `updateBill` action and the allocation-template actions, so the
+ * two can't drift (a future dimension/bound change happens in one place).
+ *
+ * Enforces that `category` is a known category and each optional dimension,
+ * when set, is a value from its list (empty string / null = unassigned). This
+ * matches what the editor's <select>s offer, so any stored value round-trips in
+ * the UI instead of silently rendering as "— Unassigned —".
+ */
+export const lineItemSplitSchema = z.object({
+  category: z
+    .string()
+    .refine((v) => (CATEGORIES as readonly string[]).includes(v), "Unknown category"),
+  department: z
+    .string()
+    .nullable()
+    .optional()
+    .refine(inList(DEPARTMENTS), "Unknown department"),
+  glAccount: z
+    .string()
+    .nullable()
+    .optional()
+    .refine(inList(GL_ACCOUNTS), "Unknown GL account"),
+  location: z
+    .string()
+    .nullable()
+    .optional()
+    .refine(inList(LOCATIONS), "Unknown location"),
+  percentageBps: z.number().int().min(1).max(10000),
+});

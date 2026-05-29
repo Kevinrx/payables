@@ -35,7 +35,10 @@ export default async function BillDetailPage({
   const bill = await getBillById(id, orgId);
   if (!bill) notFound();
 
-  const templateRows = await listAllocationTemplates(orgId);
+  // Templates are only consumed by BillEditor, which renders only for editable
+  // (draft / needs_review) bills — skip the query entirely otherwise.
+  const isEditable = bill.status === "draft" || bill.status === "needs_review";
+  const templateRows = isEditable ? await listAllocationTemplates(orgId) : [];
   const templates: SplitTemplate[] = templateRows.map((t) => ({
     id: t.id,
     name: t.name,

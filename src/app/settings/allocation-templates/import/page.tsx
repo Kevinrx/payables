@@ -6,8 +6,8 @@ const REQUIRED = ["template_name", "category", "percentage"];
 const OPTIONAL = ["department", "gl_account", "location"];
 
 const TEMPLATE_CSV = `template_name,category,department,gl_account,location,percentage
-Marketing 60/40,Marketing,Growth,6200 · Advertising,HQ,60
-Marketing 60/40,Sales,Revenue,6500 · Professional Services,HQ,40`;
+Marketing 60/40,Marketing,Marketing,6200 · Advertising,HQ — San Francisco,60
+Marketing 60/40,Sales,Sales,6200 · Advertising,New York,40`;
 
 export default function ImportAllocationTemplatesPage() {
   return (

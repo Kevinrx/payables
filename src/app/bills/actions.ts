@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { getDemoOrgId } from "@/db/queries";
 import { extractInvoice } from "@/lib/extract";
+import { lineItemSplitSchema } from "@/lib/categories";
 
 const { bills, payments, billEvents, vendors, billLineItems } = schema;
 
@@ -547,15 +548,7 @@ const updateBillSchema = z.object({
       unitPriceCents: z.number().int().nullable(),
       amountCents: z.number().int(),
       splits: z
-        .array(
-          z.object({
-            category: z.string().min(1),
-            department: z.string().nullable().optional(),
-            glAccount: z.string().nullable().optional(),
-            location: z.string().nullable().optional(),
-            percentageBps: z.number().int().min(1).max(10000),
-          })
-        )
+        .array(lineItemSplitSchema)
         .nullable()
         .optional()
         .refine((s) => !s || s.length <= 150, "A line can be split at most 150 ways")

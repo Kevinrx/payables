@@ -35,9 +35,9 @@ describe("groupCsvRowsToTemplates", () => {
 
   it("merges non-contiguous rows with the same name (case-insensitive)", () => {
     const rows: TemplateCsvRow[] = [
-      { template_name: "Split", category: "A", percentage: "50" },
-      { template_name: "Other", category: "X", percentage: "100" },
-      { template_name: "split", category: "B", percentage: "50" },
+      { template_name: "Split", category: "Marketing", percentage: "50" },
+      { template_name: "Other", category: "Operations", percentage: "100" },
+      { template_name: "split", category: "Sales", percentage: "50" },
     ];
     const { templates } = groupCsvRowsToTemplates(rows);
     const split = templates.find((t) => t.name.toLowerCase() === "split");
@@ -46,12 +46,26 @@ describe("groupCsvRowsToTemplates", () => {
 
   it("rejects a template whose percentages don't sum to 100%", () => {
     const rows: TemplateCsvRow[] = [
-      { template_name: "Bad", category: "A", percentage: "50" },
-      { template_name: "Bad", category: "B", percentage: "30" },
+      { template_name: "Bad", category: "Marketing", percentage: "50" },
+      { template_name: "Bad", category: "Sales", percentage: "30" },
     ];
     const { templates, errors } = groupCsvRowsToTemplates(rows);
     expect(templates).toHaveLength(0);
     expect(errors[0]).toContain("80%");
+  });
+
+  it("rejects category or dimension values not in the chart-of-accounts lists", () => {
+    const badCategory = groupCsvRowsToTemplates([
+      { template_name: "Weird", category: "Totally Made Up", percentage: "100" },
+    ]);
+    expect(badCategory.templates).toHaveLength(0);
+    expect(badCategory.errors[0]).toContain("Unknown category");
+
+    const badDept = groupCsvRowsToTemplates([
+      { template_name: "Weird", category: "Marketing", department: "Growth", percentage: "100" },
+    ]);
+    expect(badDept.templates).toHaveLength(0);
+    expect(badDept.errors[0]).toContain("Unknown department");
   });
 
   it("rejects a line missing a category", () => {
@@ -76,8 +90,8 @@ describe("groupCsvRowsToTemplates", () => {
 
   it("keeps valid templates and reports invalid ones in the same batch", () => {
     const rows: TemplateCsvRow[] = [
-      { template_name: "Good", category: "A", percentage: "100" },
-      { template_name: "Bad", category: "B", percentage: "70" },
+      { template_name: "Good", category: "Marketing", percentage: "100" },
+      { template_name: "Bad", category: "Sales", percentage: "70" },
     ];
     const { templates, errors } = groupCsvRowsToTemplates(rows);
     expect(templates.map((t) => t.name)).toEqual(["Good"]);

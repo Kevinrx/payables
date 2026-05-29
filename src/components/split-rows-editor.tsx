@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Plus, Trash2, Wand2 } from "lucide-react";
 import {
   CATEGORIES,
@@ -74,17 +75,36 @@ export function splitDraftsTotalPct(drafts: SplitDraft[]): number {
   return drafts.reduce((sum, d) => sum + (parseFloat(d.pct) || 0), 0);
 }
 
-export function splitDraftsValid(drafts: SplitDraft[]): boolean {
-  if (drafts.length === 0 || drafts.length > MAX_SPLITS) return false;
-  if (!drafts.every((d) => d.category && parseFloat(d.pct) > 0)) return false;
-  // Sum the per-row basis points exactly as the server does (each row is
-  // converted independently via pctToBps), not the rounded float total — so the
-  // client gate can never approve a split the server's bps refine would reject
-  // (e.g. 33.335 + 33.335 + 33.33 floats to 100% but is 10001 bps).
+/**
+ * Derives `{ splits, valid, totalPct }` from drafts in a SINGLE pass — the
+ * drafts→splits conversion runs once and validity is derived from it. Components
+ * should `useMemo(() => evaluateSplitDrafts(drafts), [drafts])` and reuse the
+ * result for both the save payload and the disabled/indicator state instead of
+ * calling `splitDraftsToSplits` + `splitDraftsValid` separately each render.
+ *
+ * Validity sums the per-row basis points exactly as the server does (each row
+ * converted independently via pctToBps), not the rounded float total — so the
+ * client gate can never approve a split the server's bps refine would reject
+ * (e.g. 33.335 + 33.335 + 33.33 floats to 100% but is 10001 bps).
+ */
+export function evaluateSplitDrafts(drafts: SplitDraft[]): {
+  splits: LineItemSplit[];
+  valid: boolean;
+  totalPct: number;
+} {
   const splits = splitDraftsToSplits(drafts);
-  if (splits.length !== drafts.length) return false;
-  const totalBps = splits.reduce((sum, s) => sum + s.percentageBps, 0);
-  return totalBps === TOTAL_BPS;
+  const totalPct = splitDraftsTotalPct(drafts);
+  const valid =
+    drafts.length > 0 &&
+    drafts.length <= MAX_SPLITS &&
+    drafts.every((d) => d.category && parseFloat(d.pct) > 0) &&
+    splits.length === drafts.length &&
+    splits.reduce((sum, s) => sum + s.percentageBps, 0) === TOTAL_BPS;
+  return { splits, valid, totalPct };
+}
+
+export function splitDraftsValid(drafts: SplitDraft[]): boolean {
+  return evaluateSplitDrafts(drafts).valid;
 }
 
 /**
@@ -105,9 +125,8 @@ export function SplitRowsEditor({
   amountCents?: number;
   currency?: string;
 }) {
+  const { valid, totalPct } = useMemo(() => evaluateSplitDrafts(drafts), [drafts]);
   const atMax = drafts.length >= MAX_SPLITS;
-  const totalPct = splitDraftsTotalPct(drafts);
-  const valid = splitDraftsValid(drafts);
   const showMoney = typeof amountCents === "number";
 
   function add() {
