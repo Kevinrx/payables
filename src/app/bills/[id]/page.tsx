@@ -195,5 +195,8 @@ function resolveBackTarget(
       return { href: `/vendors/${vendorId}`, label };
     }
   }
+  if (from === "payments") {
+    return { href: "/payments", label: "Back to payments" };
+  }
   return { href: "/bills", label: "Back to bills" };
 }

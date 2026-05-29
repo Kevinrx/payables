@@ -1,3 +1,5 @@
+import { csvEscape, centsToDollars } from "./csv";
+
 export type AgingCsvRow = {
   vendor_name: string;
   bill_count: string | number;
@@ -34,13 +36,4 @@ export function buildAgingCsvHref(rows: AgingCsvRow[]): string {
   );
   const body = [header.join(","), ...lines].join("\n");
   return `data:text/csv;charset=utf-8,${encodeURIComponent(body)}`;
-}
-
-function csvEscape(s: string): string {
-  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
-
-function centsToDollars(cents: string | number): string {
-  return (Number(cents) / 100).toFixed(2);
 }

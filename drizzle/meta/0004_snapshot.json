@@ -1,9 +1,90 @@
 {
-  "id": "666209fb-1f5a-43ca-8d56-d72835fbdcb9",
-  "prevId": "ebdfb00a-16d2-4c70-92a5-ebb6a2a8db0f",
+  "id": "135c26ac-5a95-4d7d-a184-890df49bae4b",
+  "prevId": "666209fb-1f5a-43ca-8d56-d72835fbdcb9",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.allocation_templates": {
+      "name": "allocation_templates",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "org_id": {
+          "name": "org_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "splits": {
+          "name": "splits",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "allocation_templates_org_name_lower_idx": {
+          "name": "allocation_templates_org_name_lower_idx",
+          "columns": [
+            {
+              "expression": "org_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lower(\"name\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "allocation_templates_org_id_organizations_id_fk": {
+          "name": "allocation_templates_org_id_organizations_id_fk",
+          "tableFrom": "allocation_templates",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "org_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.bill_events": {
       "name": "bill_events",
       "schema": "",

@@ -91,6 +91,41 @@ export async function getBillSummary(orgId: string) {
   };
 }
 
+// ─── Payments (payment-centric list, mirrors listBills) ─────────────
+
+export type PaymentListRow = Awaited<ReturnType<typeof listPayments>>[number];
+
+export async function listPayments(orgId: string) {
+  // Payments have no org_id of their own — scope through the parent bill.
+  return db
+    .select({
+      id: payments.id,
+      billId: payments.billId,
+      scheduledFor: payments.scheduledFor,
+      paidAt: payments.paidAt,
+      method: payments.method,
+      amountCents: payments.amountCents,
+      status: payments.status,
+      createdAt: payments.createdAt,
+      vendorId: bills.vendorId,
+      vendorName: vendors.name,
+      invoiceNumber: bills.invoiceNumber,
+      billDueDate: bills.dueDate,
+      billStatus: bills.status,
+      currency: bills.currency,
+    })
+    .from(payments)
+    .innerJoin(bills, eq(bills.id, payments.billId))
+    .leftJoin(vendors, eq(vendors.id, bills.vendorId))
+    .where(eq(bills.orgId, orgId))
+    .orderBy(asc(payments.scheduledFor), desc(payments.createdAt));
+}
+
+// NOTE: the Payments summary cards are derived in JS via
+// `summarizePayments(rows, today)` (src/lib/payments.ts) from the very rows
+// `listPayments` returns — not a second SQL aggregate. That keeps the cards
+// and the tabs on one bucket rule and one notion of "today" (see PR review).
+
 export async function getBillById(billId: string, orgId: string) {
   const [bill] = await db
     .select({
