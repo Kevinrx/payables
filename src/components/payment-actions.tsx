@@ -2,16 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  CalendarClock,
-  CalendarX,
-  Loader2,
-  MoreHorizontal,
-  RotateCcw,
-  Send,
-  Wallet,
-  X,
-} from "lucide-react";
+import { Loader2, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import type { PaymentStatus } from "@/db/schema";
 import { eligibleActions, PAYMENT_ACTION_LABELS, type PaymentAction } from "@/lib/payments";
@@ -23,16 +14,8 @@ import {
   retryPayment,
   unschedulePayment,
 } from "@/app/payments/actions";
+import { PAYMENT_ACTION_ICON, DANGER_ACTIONS } from "./payment-action-meta";
 import { PaymentEditDateDialog } from "./payment-edit-date-dialog";
-
-const ACTION_ICON: Record<PaymentAction, React.ComponentType<{ className?: string }>> = {
-  release: Send,
-  markPaid: Wallet,
-  editDate: CalendarClock,
-  unschedule: CalendarX,
-  cancel: X,
-  retry: RotateCcw,
-};
 
 export function PaymentActions({
   paymentId,
@@ -114,8 +97,8 @@ export function PaymentActions({
             }}
           >
             {actions.map((a) => {
-              const Icon = ACTION_ICON[a];
-              const danger = a === "cancel";
+              const Icon = PAYMENT_ACTION_ICON[a];
+              const danger = DANGER_ACTIONS.has(a);
               return (
                 <button
                   key={a}

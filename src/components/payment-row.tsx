@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { PaymentListRow } from "@/db/queries";
+import { paymentBucket } from "@/lib/payments";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { VendorAvatar } from "./vendor-avatar";
 import { MethodPill } from "./method-pill";
@@ -11,15 +12,19 @@ const GRID_TEMPLATE = "28px minmax(0, 1.6fr) 1fr 1.1fr 64px 1fr 116px 44px";
 
 export function PaymentRow({
   row,
+  today,
   selected,
   onSelectChange,
 }: {
   row: PaymentListRow;
+  today: string;
   selected: boolean;
   onSelectChange: (id: string, checked: boolean) => void;
 }) {
   const billHref = `/bills/${row.billId}?from=payments`;
-  const needsAttention = row.status === "failed";
+  // Rail matches the Needs-review bucket: failed payments AND stale-scheduled
+  // ones (date passed, should have released) — not just `failed`.
+  const needsAttention = paymentBucket(row, today) === "needs_review";
 
   return (
     <div className="group relative border-b border-border bg-surface transition-colors last:border-b-0 hover:bg-surface-hover">

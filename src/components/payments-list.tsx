@@ -50,11 +50,13 @@ const ACTION_VERB: Record<PaymentAction, string> = {
   editDate: "Rescheduled",
 };
 
-function localToday(): string {
-  return new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time
-}
-
-export function PaymentsList({ rows }: { rows: PaymentListRow[] }) {
+export function PaymentsList({
+  rows,
+  today,
+}: {
+  rows: PaymentListRow[];
+  today: string;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
@@ -68,8 +70,6 @@ export function PaymentsList({ rows }: { rows: PaymentListRow[] }) {
   const [sortKey, setSortKey] = useState<SortKey>("scheduled");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-
-  const today = useMemo(() => localToday(), []);
 
   function setTab(next: Tab) {
     setTabState(next);
@@ -148,6 +148,12 @@ export function PaymentsList({ rows }: { rows: PaymentListRow[] }) {
   function reportResult(action: PaymentAction, res: { ok: boolean; error?: string; data?: { succeeded: number; skipped: number } }) {
     if (res.ok && res.data) {
       const { succeeded, skipped } = res.data;
+      if (succeeded === 0) {
+        // Everything was ineligible by the time the server ran (statuses can
+        // change between selection and submit) — that's not a success.
+        toast.error(`Nothing applied · ${skipped} skipped`);
+        return;
+      }
       toast.success(
         `${ACTION_VERB[action]} ${succeeded} ${succeeded === 1 ? "payment" : "payments"}` +
           (skipped > 0 ? ` · ${skipped} skipped` : "")
@@ -175,22 +181,26 @@ export function PaymentsList({ rows }: { rows: PaymentListRow[] }) {
     });
   }
 
-  const csvHref = useMemo(
-    () =>
-      buildPaymentsCsvHref(
-        filtered.map((r) => ({
-          vendorName: r.vendorName,
-          invoiceNumber: r.invoiceNumber,
-          status: r.status,
-          method: r.method,
-          amountCents: r.amountCents,
-          scheduledFor: r.scheduledFor,
-          paidAt: r.paidAt,
-          billDueDate: r.billDueDate,
-        }))
-      ),
-    [filtered]
-  );
+  // Built on click, not on every keystroke — the data: URI is only needed
+  // when the user actually exports.
+  function handleExport() {
+    const href = buildPaymentsCsvHref(
+      filtered.map((r) => ({
+        vendorName: r.vendorName,
+        invoiceNumber: r.invoiceNumber,
+        status: r.status,
+        method: r.method,
+        amountCents: r.amountCents,
+        scheduledFor: r.scheduledFor,
+        paidAt: r.paidAt,
+        billDueDate: r.billDueDate,
+      }))
+    );
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = "payments.csv";
+    a.click();
+  }
 
   return (
     <div className="pb-24">
@@ -212,10 +222,15 @@ export function PaymentsList({ rows }: { rows: PaymentListRow[] }) {
           </div>
         </div>
         <div className="hidden flex-1 sm:block" />
-        <a href={csvHref} download="payments.csv" className="btn btn-secondary btn-sm self-start">
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={filtered.length === 0}
+          className="btn btn-secondary btn-sm self-start"
+        >
           <Download className="h-3.5 w-3.5" />
           Export CSV
-        </a>
+        </button>
       </div>
 
       {/* Search + count */}
@@ -278,6 +293,7 @@ export function PaymentsList({ rows }: { rows: PaymentListRow[] }) {
             <PaymentRow
               key={row.id}
               row={row}
+              today={today}
               selected={selected.has(row.id)}
               onSelectChange={onSelectChange}
             />

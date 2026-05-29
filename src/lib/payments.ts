@@ -37,6 +37,56 @@ export function paymentBucket(
   }
 }
 
+// ─── Summary (derived from the SAME rows + bucket rule as the tabs) ──
+//
+// Computed in JS from listPayments rows rather than a second SQL query, so
+// the cards and the tabs can never disagree on "today" or the bucket rule.
+
+type SummarizableRow = {
+  status: PaymentStatus;
+  scheduledFor: string | null;
+  amountCents: number;
+};
+
+type SummaryBucket = { count: number; cents: number };
+export type PaymentsSummary = {
+  needsReview: SummaryBucket;
+  pending: SummaryBucket;
+  paid: SummaryBucket;
+  outgoing: SummaryBucket;
+};
+
+export function summarizePayments(
+  rows: SummarizableRow[],
+  todayIso: string
+): PaymentsSummary {
+  const summary: PaymentsSummary = {
+    needsReview: { count: 0, cents: 0 },
+    pending: { count: 0, cents: 0 },
+    paid: { count: 0, cents: 0 },
+    outgoing: { count: 0, cents: 0 },
+  };
+  for (const r of rows) {
+    const bucket = paymentBucket(r, todayIso);
+    if (bucket === "needs_review") {
+      summary.needsReview.count++;
+      summary.needsReview.cents += r.amountCents;
+    } else if (bucket === "pending") {
+      summary.pending.count++;
+      summary.pending.cents += r.amountCents;
+    }
+    if (r.status === "paid") {
+      summary.paid.count++;
+      summary.paid.cents += r.amountCents;
+    }
+    if (r.status === "scheduled" || r.status === "processing") {
+      summary.outgoing.count++;
+      summary.outgoing.cents += r.amountCents;
+    }
+  }
+  return summary;
+}
+
 // ─── Status display ─────────────────────────────────────────────────
 
 export const PAYMENT_STATUS_DISPLAY: Record<

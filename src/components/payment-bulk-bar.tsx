@@ -1,34 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import {
-  CalendarClock,
-  CalendarX,
-  Loader2,
-  RotateCcw,
-  Send,
-  Wallet,
-  X,
-} from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import type { PaymentStatus } from "@/db/schema";
-import { canApply, type PaymentAction } from "@/lib/payments";
+import { canApply, PAYMENT_ACTION_LABELS, type PaymentAction } from "@/lib/payments";
+import {
+  PAYMENT_ACTION_ICON,
+  BULK_ACTION_ORDER,
+  DANGER_ACTIONS,
+} from "./payment-action-meta";
 import { PaymentEditDateDialog } from "./payment-edit-date-dialog";
 
 type Selected = { id: string; status: PaymentStatus };
-
-const BAR_ACTIONS: {
-  action: PaymentAction;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  danger?: boolean;
-}[] = [
-  { action: "release", label: "Release", icon: Send },
-  { action: "markPaid", label: "Mark paid", icon: Wallet },
-  { action: "retry", label: "Retry", icon: RotateCcw },
-  { action: "editDate", label: "Edit date", icon: CalendarClock },
-  { action: "unschedule", label: "Unschedule", icon: CalendarX },
-  { action: "cancel", label: "Cancel", icon: X, danger: true },
-];
 
 export function PaymentBulkBar({
   selected,
@@ -69,7 +52,10 @@ export function PaymentBulkBar({
         <div className="mx-1 hidden h-5 w-px sm:block" style={{ background: "var(--ink-faint)" }} />
 
         <div className="flex flex-wrap items-center gap-1.5">
-          {BAR_ACTIONS.map(({ action, label, icon: Icon, danger }) => {
+          {BULK_ACTION_ORDER.map((action) => {
+            const Icon = PAYMENT_ACTION_ICON[action];
+            const label = PAYMENT_ACTION_LABELS[action];
+            const danger = DANGER_ACTIONS.has(action);
             const count = eligibleIds(action).length;
             return (
               <button

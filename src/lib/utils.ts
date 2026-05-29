@@ -44,6 +44,17 @@ export function formatDate(d: Date | string | null | undefined) {
 }
 
 /**
+ * Today as a `YYYY-MM-DD` string. The single source of "today" for payment
+ * bucketing — computed once on the server and threaded to the client so the
+ * summary cards and the tab filter never disagree at a timezone boundary.
+ * `en-CA` formats as ISO; respects the runtime's local timezone (UTC on the
+ * server/Neon).
+ */
+export function currentDateIso(): string {
+  return new Date().toLocaleDateString("en-CA");
+}
+
+/**
  * Days from today to `dueDate`. Negative = overdue.
  * Used to compute aging buckets.
  */

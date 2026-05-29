@@ -5,6 +5,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { getDemoOrgId } from "@/db/queries";
+import { currentDateIso } from "@/lib/utils";
 
 const { bills, payments, billEvents } = schema;
 
@@ -79,7 +80,12 @@ async function applyCancel(
     return { applied: false, reason: `Cannot ${action} a ${p.status} payment` };
   }
   await tx.update(payments).set({ status: "canceled" }).where(eq(payments.id, p.id));
-  // Return the bill to the active queue (unpaid) if it was scheduled.
+  // INVARIANT: at most one active (non-terminal) payment per bill. Guaranteed
+  // today because schedulePayment only fires on an `approved` bill and moves it
+  // straight to `scheduled`, so a second concurrent payment can't be created.
+  // Driving the bill status off this single payment is therefore safe. If
+  // partial/split payments are ever added, derive the bill transition from the
+  // aggregate of the bill's payments instead.
   if (bill.status === "scheduled") {
     await tx
       .update(bills)
@@ -115,8 +121,9 @@ async function applyRetry(tx: Tx, p: PaymentRow): Promise<ApplyResult> {
   if (p.status !== "failed") {
     return { applied: false, reason: `Cannot retry a ${p.status} payment` };
   }
-  // Re-queue for today so it lands back in Pending and can release.
-  const today = new Date().toISOString().slice(0, 10);
+  // Re-queue for today so it lands back in Pending and can release. Uses the
+  // same day basis (currentDateIso) as the tab/summary bucketing.
+  const today = currentDateIso();
   await tx
     .update(payments)
     .set({ status: "scheduled", scheduledFor: today })
@@ -141,6 +148,8 @@ async function applyMarkPaid(
     .update(payments)
     .set({ status: "paid", paidAt: new Date() })
     .where(eq(payments.id, p.id));
+  // INVARIANT: one active payment per bill (see applyCancel). Marking this
+  // payment paid settles the whole bill. Revisit if split payments land.
   if (bill.status === "scheduled") {
     await tx
       .update(bills)
@@ -186,8 +195,12 @@ async function runBulk(
   apply: (tx: Tx, loaded: Loaded) => Promise<ApplyResult>
 ): Promise<Result<{ succeeded: number; skipped: number }>> {
   try {
+    const parsed = idsSchema.safeParse(paymentIds);
+    if (!parsed.success) return { ok: false, error: "Invalid selection" };
+    const ids = parsed.data;
+
     const orgId = await getDemoOrgId();
-    const loaded = await findPaymentsForOrg(paymentIds, orgId);
+    const loaded = await findPaymentsForOrg(ids, orgId);
 
     let succeeded = 0;
     let skipped = 0;
@@ -204,7 +217,7 @@ async function runBulk(
       }
     });
     // ids that didn't resolve (wrong org / deleted) count as skipped too.
-    skipped += paymentIds.length - loaded.length;
+    skipped += ids.length - loaded.length;
 
     revalidatePath("/payments");
     revalidatePath("/bills");
@@ -262,47 +275,33 @@ export async function editPaymentDate(
 // ─── Bulk server actions ────────────────────────────────────────────
 
 export async function releasePayments(paymentIds: string[]) {
-  const parsed = idsSchema.safeParse(paymentIds);
-  if (!parsed.success) return { ok: false as const, error: "Invalid selection" };
-  return runBulk(parsed.data, (tx, { payment }) => applyRelease(tx, payment));
+  return runBulk(paymentIds, (tx, { payment }) => applyRelease(tx, payment));
 }
 
 export async function cancelPayments(paymentIds: string[]) {
-  const parsed = idsSchema.safeParse(paymentIds);
-  if (!parsed.success) return { ok: false as const, error: "Invalid selection" };
-  return runBulk(parsed.data, (tx, { payment, bill }) =>
+  return runBulk(paymentIds, (tx, { payment, bill }) =>
     applyCancel(tx, payment, bill, "cancel")
   );
 }
 
 export async function unschedulePayments(paymentIds: string[]) {
-  const parsed = idsSchema.safeParse(paymentIds);
-  if (!parsed.success) return { ok: false as const, error: "Invalid selection" };
-  return runBulk(parsed.data, (tx, { payment, bill }) =>
+  return runBulk(paymentIds, (tx, { payment, bill }) =>
     applyCancel(tx, payment, bill, "unschedule")
   );
 }
 
 export async function retryPayments(paymentIds: string[]) {
-  const parsed = idsSchema.safeParse(paymentIds);
-  if (!parsed.success) return { ok: false as const, error: "Invalid selection" };
-  return runBulk(parsed.data, (tx, { payment }) => applyRetry(tx, payment));
+  return runBulk(paymentIds, (tx, { payment }) => applyRetry(tx, payment));
 }
 
 export async function markPaymentsPaid(paymentIds: string[]) {
-  const parsed = idsSchema.safeParse(paymentIds);
-  if (!parsed.success) return { ok: false as const, error: "Invalid selection" };
-  return runBulk(parsed.data, (tx, { payment, bill }) =>
+  return runBulk(paymentIds, (tx, { payment, bill }) =>
     applyMarkPaid(tx, payment, bill)
   );
 }
 
 export async function editPaymentDates(paymentIds: string[], scheduledFor: string) {
-  const ids = idsSchema.safeParse(paymentIds);
   const date = dateSchema.safeParse(scheduledFor);
-  if (!ids.success) return { ok: false as const, error: "Invalid selection" };
   if (!date.success) return { ok: false as const, error: "Invalid date" };
-  return runBulk(ids.data, (tx, { payment }) =>
-    applyEditDate(tx, payment, date.data)
-  );
+  return runBulk(paymentIds, (tx, { payment }) => applyEditDate(tx, payment, date.data));
 }

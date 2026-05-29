@@ -1,6 +1,7 @@
 // CSV export for the Payments screen. Mirrors src/lib/aging-csv.ts:
 // build a data: URI from the currently-filtered rows so the export
 // matches exactly what the user is looking at.
+import { csvEscape, centsToDollars } from "./csv";
 
 export type PaymentCsvRow = {
   vendorName: string | null;
@@ -38,15 +39,6 @@ export function buildPaymentsCsvHref(rows: PaymentCsvRow[]): string {
   );
   const body = [header.join(","), ...lines].join("\n");
   return `data:text/csv;charset=utf-8,${encodeURIComponent(body)}`;
-}
-
-function csvEscape(s: string): string {
-  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
-
-function centsToDollars(cents: number): string {
-  return (Number(cents) / 100).toFixed(2);
 }
 
 function toIsoDate(d: Date | string | null): string {
