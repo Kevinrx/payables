@@ -545,11 +545,15 @@ const updateBillSchema = z.object({
         .array(
           z.object({
             category: z.string().min(1),
+            department: z.string().nullable().optional(),
+            glAccount: z.string().nullable().optional(),
+            location: z.string().nullable().optional(),
             percentageBps: z.number().int().min(1).max(10000),
           })
         )
         .nullable()
         .optional()
+        .refine((s) => !s || s.length <= 150, "A line can be split at most 150 ways")
         .refine(
           (s) => !s || s.length === 0 || s.reduce((acc, x) => acc + x.percentageBps, 0) === 10000,
           "Splits must sum to 100%"
