@@ -1,4 +1,4 @@
-import { CheckCircle2, FilePlus, FileSearch, Pencil, Send, Wallet, XCircle } from "lucide-react";
+import { CheckCircle2, FilePlus, FileSearch, Pencil, Send, Truck, Wallet, XCircle } from "lucide-react";
 import type { BillEventRow } from "@/db/schema";
 
 const EVENT_DISPLAY: Record<
@@ -12,6 +12,8 @@ const EVENT_DISPLAY: Record<
   scheduled: { label: "Payment scheduled",  icon: Send,        tone: "var(--warn-strong, var(--brand))" },
   paid:      { label: "Paid",               icon: Wallet,      tone: "var(--success)" },
   voided:    { label: "Voided",             icon: XCircle,     tone: "var(--danger)" },
+  released:  { label: "Payment released",   icon: Truck,       tone: "var(--info)" },
+  canceled:  { label: "Payment canceled",   icon: XCircle,     tone: "var(--danger)" },
 };
 
 function formatRelative(d: Date | string) {

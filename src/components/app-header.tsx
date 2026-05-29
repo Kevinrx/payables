@@ -27,6 +27,7 @@ export function AppHeader() {
         </Link>
         <nav className="flex items-center gap-0.5">
           <HeaderLink href="/bills" label="Bills" />
+          <HeaderLink href="/payments" label="Payments" />
           <HeaderLink href="/aging" label="Aging" />
           <HeaderLink href="/vendors" label="Vendors" />
         </nav>

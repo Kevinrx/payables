@@ -288,6 +288,9 @@ body {
 .pill-paid      { background: var(--success-soft); color: var(--success); }
 .pill-void      { background: var(--danger-soft);  color: var(--danger); }
 .pill-overdue   { background: var(--danger-soft);  color: var(--danger-strong); }
+.pill-processing { background: var(--info-soft);    color: var(--info); }
+.pill-failed     { background: var(--danger-soft);  color: var(--danger-strong); }
+.pill-canceled   { background: var(--paper-sunken); color: var(--ink-faint); }
 
 /* ----- Tabs ----- */
 .tabs {

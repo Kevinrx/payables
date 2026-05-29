@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { getDemoOrgId } from "@/db/queries";
@@ -503,7 +503,12 @@ export async function markBillPaid(billId: string): Promise<Result> {
       await tx
         .update(payments)
         .set({ status: "paid", paidAt: new Date() })
-        .where(and(eq(payments.billId, billId), eq(payments.status, "scheduled")));
+        .where(
+          and(
+            eq(payments.billId, billId),
+            inArray(payments.status, ["scheduled", "processing"])
+          )
+        );
       await tx
         .update(bills)
         .set({ status: "paid", updatedAt: new Date() })

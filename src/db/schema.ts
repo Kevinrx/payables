@@ -29,6 +29,7 @@ export const paymentMethod = pgEnum("payment_method", ["ach", "check", "card"]);
 
 export const paymentStatus = pgEnum("payment_status", [
   "scheduled",
+  "processing",
   "paid",
   "failed",
   "canceled",
@@ -42,6 +43,8 @@ export const billEvent = pgEnum("bill_event", [
   "scheduled",
   "paid",
   "voided",
+  "released",
+  "canceled",
 ]);
 
 // ─── Tables ─────────────────────────────────────────────────────────
