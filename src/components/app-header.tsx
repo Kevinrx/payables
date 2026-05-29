@@ -29,6 +29,7 @@ export function AppHeader() {
           <HeaderLink href="/bills" label="Bills" />
           <HeaderLink href="/aging" label="Aging" />
           <HeaderLink href="/vendors" label="Vendors" />
+          <HeaderLink href="/settings" label="Settings" />
         </nav>
       </div>
     </header>
