@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, FileText } from "lucide-react";
-import { getBillById, getDemoOrgId, type BillDetail } from "@/db/queries";
+import {
+  getBillById,
+  getDemoOrgId,
+  listAllocationTemplates,
+  type BillDetail,
+} from "@/db/queries";
+import { canManageTemplates } from "@/lib/permissions";
+import type { SplitTemplate } from "@/components/line-item-splits-dialog";
 import { BillActions } from "@/components/bill-actions";
 import { BillEditor } from "@/components/bill-editor";
 import { BillEventTimeline } from "@/components/bill-event-timeline";
@@ -27,6 +34,14 @@ export default async function BillDetailPage({
   const orgId = await getDemoOrgId();
   const bill = await getBillById(id, orgId);
   if (!bill) notFound();
+
+  const templateRows = await listAllocationTemplates(orgId);
+  const templates: SplitTemplate[] = templateRows.map((t) => ({
+    id: t.id,
+    name: t.name,
+    splits: t.splits,
+  }));
+  const canManage = canManageTemplates(orgId);
 
   const back = resolveBackTarget(from, bill.vendor);
 
@@ -58,13 +73,21 @@ export default async function BillDetailPage({
           />
         </>
       ) : (
-        <BillBody bill={bill} />
+        <BillBody bill={bill} templates={templates} canManageTemplates={canManage} />
       )}
     </div>
   );
 }
 
-function BillBody({ bill }: { bill: BillDetail }) {
+function BillBody({
+  bill,
+  templates,
+  canManageTemplates,
+}: {
+  bill: BillDetail;
+  templates: SplitTemplate[];
+  canManageTemplates: boolean;
+}) {
   const isEditable = bill.status === "draft" || bill.status === "needs_review";
 
   return (
@@ -79,7 +102,11 @@ function BillBody({ bill }: { bill: BillDetail }) {
         {/* LEFT — work surface */}
         <div className="min-w-0 flex flex-col gap-5">
           {isEditable ? (
-            <BillEditor bill={bill} />
+            <BillEditor
+              bill={bill}
+              templates={templates}
+              canManageTemplates={canManageTemplates}
+            />
           ) : (
             <>
               <BillReadOnlyDetails bill={bill} />

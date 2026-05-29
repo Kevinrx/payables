@@ -8,7 +8,7 @@ import type { BillDetail } from "@/db/queries";
 import { updateBill } from "@/app/bills/actions";
 import { dollarsToCents, formatMoney } from "@/lib/utils";
 import { formatSplitSummary, type LineItemSplit } from "@/lib/categories";
-import { LineItemSplitsDialog } from "./line-item-splits-dialog";
+import { LineItemSplitsDialog, type SplitTemplate } from "./line-item-splits-dialog";
 
 type LineItemDraft = {
   key: string;
@@ -38,7 +38,15 @@ function billToLineItemDrafts(bill: BillDetail): LineItemDraft[] {
   }));
 }
 
-export function BillEditor({ bill }: { bill: BillDetail }) {
+export function BillEditor({
+  bill,
+  templates,
+  canManageTemplates,
+}: {
+  bill: BillDetail;
+  templates: SplitTemplate[];
+  canManageTemplates: boolean;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -293,7 +301,10 @@ export function BillEditor({ bill }: { bill: BillDetail }) {
           onOpenChange={(v) => !v && setSplittingKey(null)}
           description={splittingLine.description || "Untitled line"}
           amountCents={dollarsToCents(splittingLine.amount)}
+          currency={bill.currency}
           initial={splittingLine.splits}
+          templates={templates}
+          canManageTemplates={canManageTemplates}
           onSave={(splits) => setLineSplits(splittingLine.key, splits)}
         />
       )}
