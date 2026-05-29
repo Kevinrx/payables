@@ -7,6 +7,7 @@
 import "./load-env";
 import { db, schema } from "../src/db";
 import { sql } from "drizzle-orm";
+import type { LineItemSplit } from "../src/lib/categories";
 
 function daysFromNow(n: number): string {
   const d = new Date();
@@ -17,7 +18,7 @@ function daysFromNow(n: number): string {
 async function seed() {
   console.log("Wiping existing data...");
   // Order matters: children before parents due to FKs.
-  await db.execute(sql`TRUNCATE TABLE bill_events, payments, bill_line_items, bills, vendors, organizations RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE bill_events, payments, bill_line_items, allocation_templates, bills, vendors, organizations RESTART IDENTITY CASCADE`);
 
   console.log("Inserting organization...");
   const [org] = await db
@@ -41,9 +42,42 @@ async function seed() {
 
   const v = Object.fromEntries(vendorRows.map((r) => [r.name, r]));
 
+  console.log("Inserting allocation templates...");
+  await db.insert(schema.allocationTemplates).values([
+    {
+      orgId: org.id,
+      name: "Marketing 60/40",
+      splits: [
+        { category: "Marketing", department: "Marketing", glAccount: "6200 · Advertising", location: "HQ — San Francisco", percentageBps: 6000 },
+        { category: "Sales", department: "Sales", glAccount: "6200 · Advertising", location: "New York", percentageBps: 4000 },
+      ],
+    },
+    {
+      orgId: org.id,
+      name: "Engineering 70/30",
+      splits: [
+        { category: "Engineering / R&D", department: "Engineering", glAccount: "6100 · R&D", location: "Remote", percentageBps: 7000 },
+        { category: "Product", department: "Product", glAccount: "6100 · R&D", location: "Austin", percentageBps: 3000 },
+      ],
+    },
+    {
+      orgId: org.id,
+      name: "G&A even split",
+      splits: [
+        { category: "G&A", department: "Finance", glAccount: "6500 · Professional Services", location: "HQ — San Francisco", percentageBps: 5000 },
+        { category: "Operations", department: "Operations", glAccount: "7000 · Other Expense", location: "HQ — San Francisco", percentageBps: 5000 },
+      ],
+    },
+  ]);
+
   console.log("Inserting bills + line items + payments + events...");
 
-  type LineItem = { description: string; quantity: number; unitPriceCents: number };
+  type LineItem = {
+    description: string;
+    quantity: number;
+    unitPriceCents: number;
+    splits?: LineItemSplit[];
+  };
   type SeedBill = {
     vendor: keyof typeof v;
     invoiceNumber: string;
@@ -72,7 +106,15 @@ async function seed() {
       status: "needs_review",
       notes: "Q2 compute usage",
       lines: [
-        { description: "Compute hours - production", quantity: 720, unitPriceCents: 145 },
+        {
+          description: "Compute hours - production",
+          quantity: 720,
+          unitPriceCents: 145,
+          splits: [
+            { category: "Engineering / R&D", department: "Engineering", glAccount: "6100 · R&D", location: "Remote", percentageBps: 6000 },
+            { category: "Product", department: "Product", glAccount: "6100 · R&D", location: "Austin", percentageBps: 4000 },
+          ],
+        },
         { description: "Egress bandwidth (GB)", quantity: 1850, unitPriceCents: 9 },
         { description: "Object storage (TB-month)", quantity: 4, unitPriceCents: 2300 },
       ],
@@ -95,7 +137,15 @@ async function seed() {
       dueDate: daysFromNow(8),
       status: "approved",
       lines: [
-        { description: "Standing desks (model E2)", quantity: 4, unitPriceCents: 49900 },
+        {
+          description: "Standing desks (model E2)",
+          quantity: 4,
+          unitPriceCents: 49900,
+          splits: [
+            { category: "Operations", department: "Operations", glAccount: "6400 · Office & Supplies", location: "HQ — San Francisco", percentageBps: 5000 },
+            { category: "G&A", department: "Finance", glAccount: "6400 · Office & Supplies", location: "New York", percentageBps: 5000 },
+          ],
+        },
         { description: "Monitor arms", quantity: 8, unitPriceCents: 12500 },
         { description: "Notebooks (case of 24)", quantity: 3, unitPriceCents: 6800 },
       ],
@@ -240,6 +290,7 @@ async function seed() {
         unitPriceCents: l.unitPriceCents,
         amountCents: l.quantity * l.unitPriceCents,
         sortOrder: i,
+        splits: l.splits ?? null,
       }))
     );
 
