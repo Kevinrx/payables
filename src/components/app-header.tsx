@@ -30,6 +30,7 @@ export function AppHeader() {
           <HeaderLink href="/payments" label="Payments" />
           <HeaderLink href="/aging" label="Aging" />
           <HeaderLink href="/vendors" label="Vendors" />
+          <HeaderLink href="/settings" label="Settings" />
         </nav>
       </div>
     </header>

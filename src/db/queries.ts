@@ -1,7 +1,8 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "./index";
 
-const { bills, vendors, billLineItems, payments, billEvents } = schema;
+const { bills, vendors, billLineItems, payments, billEvents, allocationTemplates } =
+  schema;
 
 /**
  * Single demo org. In a real product, derived from session auth.
@@ -225,3 +226,14 @@ export async function getVendorById(vendorId: string, orgId: string) {
 }
 
 export type VendorDetail = NonNullable<Awaited<ReturnType<typeof getVendorById>>>;
+
+export type TemplateRow = Awaited<ReturnType<typeof listAllocationTemplates>>[number];
+
+/** All saved allocation templates for an org, ordered by name. Org-scoped. */
+export async function listAllocationTemplates(orgId: string) {
+  return db
+    .select()
+    .from(allocationTemplates)
+    .where(eq(allocationTemplates.orgId, orgId))
+    .orderBy(asc(allocationTemplates.name));
+}

@@ -22,6 +22,7 @@ A small, opinionated payables product inspired by [Ramp Bill Pay](https://suppor
 - [Ramp Bill Pay feature coverage](#ramp-bill-pay-feature-coverage)
 - [What it does](#what-it-does)
 - [Workflows I prioritized](#workflows-i-prioritized)
+- [Line-item splits & allocation templates](#line-item-splits--allocation-templates)
 - [What I left out and why](#what-i-left-out-and-why)
 - [Setup](#setup)
 - [Tech stack and rationale](#tech-stack-and-rationale)
@@ -43,7 +44,7 @@ The takehome prompt linked 11 Ramp Bill Pay help-center articles. Here's the exp
 | # | Prompt feature | Status | Where |
 |---|---|---|---|
 | 1 | Ramp Bill Pay OCR | ✅ Shipped | Claude Sonnet 4.6 vision; `/bills/new` → upload PDF/image |
-| 2 | Bill Pay Line Item Splits and Allocation Templates | ✅ Splits shipped (templates skipped) | Per-line category allocation with live cents preview; templates listed under "What I'd build next" |
+| 2 | Bill Pay Line Item Splits and Allocation Templates | ✅ Shipped | Multi-dimension per-line allocation (category + department + GL + location) with live cents preview; reusable templates managed from a bill, from **Settings → Allocation templates**, or via CSV import. See [Line-item splits & allocation templates](#line-item-splits--allocation-templates) |
 | 3 | Bill Pay AP Email Forwarding | ❌ Skipped | Postmark/SES inbound webhook → same upload pipeline. ~2h, didn't fit. |
 | 4 | Bill Pay spreadsheet upload (CSV) | ✅ Shipped | `/bills/import` with drag-drop, preview table, per-row validation |
 | 5 | Managing bills and payments | ✅ Shipped | `/bills` with summary cards, filter, search, sortable columns |
@@ -54,7 +55,7 @@ The takehome prompt linked 11 Ramp Bill Pay help-center articles. Here's the exp
 | 10 | Bill lifecycle | ✅ Shipped | Status FSM: `draft → needs_review → approved → scheduled → paid`. See [Bill status lifecycle](#bill-status-lifecycle) |
 | 11 | AP Aging Report | ✅ Shipped | `/aging` — per-vendor table bucketed by days overdue |
 
-**Score: 9 shipped / 2 skipped, with explicit reasoning on the skips.** The skipped items are documented in [What I left out and why](#what-i-left-out-and-why); the partial (Allocation Templates) is in [What I'd build next](#what-id-build-next).
+**Score: 9 shipped / 2 skipped, with explicit reasoning on the skips.** The skipped items (#3 AP email forwarding, #8 expense-vs-item) are documented in [What I left out and why](#what-i-left-out-and-why). Allocation Templates (#2) — originally deferred — shipped in a follow-up PR alongside multi-dimension splits; the design rationale is in [Line-item splits & allocation templates](#line-item-splits--allocation-templates).
 
 ## What it does
 
@@ -70,7 +71,7 @@ In rough order of build effort:
 2. **Manual bill creation** — when there's no invoice (recurring bills, email-only mentions, back-fill). One-click "Create a bill without an invoice" → empty draft, fill in the editor, same approval flow.
 3. **CSV bulk import** (`/bills/import`) — drop a spreadsheet, get a preview table, hit Import. Per-row validation (skips bad rows with an error list). Vendor dedup runs against the existing org so no duplicates are created. Common header aliases accepted (`vendor` → `vendor_name`, `amount` → `total`, `invoice_no` → `invoice_number`); the page surfaces the canonical column set + aliases up front so users don't have to read code to find them.
 4. **Review and edit** — inline editor on the bill detail page with vendor combobox, dates, totals, and a fully editable line-items table (add/remove rows, auto-compute amount from qty × unit). Saves write a `bill_events` audit row.
-5. **Line item category splits** — every line item can be allocated across multiple GL categories (e.g. "AWS hosting: 60% R&D, 40% Marketing"). Inline editor with a "distribute evenly" helper, "fill remaining %" wand, and a live cents preview per split. The bill detail page aggregates splits into a "Category breakdown" table.
+5. **Line item splits & allocation templates** — every line item can be allocated across multiple accounting dimensions (category + department + GL account + location), e.g. "AWS hosting: 60% R&D / Engineering, 40% Marketing." Inline editor with a "distribute evenly" helper, "fill remaining %" wand, and a live cents preview per split (≤150 splits/line). Allocations save as **reusable templates** appliable to any line in one click — managed from a bill ("Save for future use"), from **Settings → Allocation templates**, or via CSV bulk import (≤200 templates/org). The bill detail page aggregates splits into a "Category breakdown" table. Full rationale: [Line-item splits & allocation templates](#line-item-splits--allocation-templates).
 6. **Approve → schedule → pay** — three explicit transitions, each with the right action button shown only when the bill is in the right state. Scheduling opens a small dialog (date, method, amount). Mark-paid finalizes.
 7. **Recurring bills** — "Repeat" any bill into N future drafts (monthly / quarterly / yearly). Children link back to the template via `parent_bill_id`. The bills list shows a small repeat icon; the detail page shows a "Recurring (view source)" pill.
 8. **Bills list with summary + filtering** — overdue, due-in-7-days, scheduled, and total outstanding stat cards (computed in SQL with FILTER aggregates). Search, status filter, and sortable columns. Per-row aging signal in the Due column ("4 days overdue", "in 6 days").
@@ -78,6 +79,26 @@ In rough order of build effort:
 10. **Per-bill activity timeline** — every state transition logged as a `bill_events` row, rendered as a vertical timeline on the detail page. Doubles as audit trail.
 11. **Vendors view + drill-down** — `/vendors` lists every supplier with bill counts, outstanding, and lifetime paid (with monogram avatars, default-method pill, and inline search). Click a row → `/vendors/[id]` shows that vendor's contact info + outstanding/paid/total stats + a scoped table of every bill they've sent. Each bill row links into `/bills/[id]?from=vendor:<id>` so the bill detail's Back button returns to the vendor (not the list). The **+ New vendor** button opens a dialog to manually create one (name + email + default payment method) — augments the auto-create-on-extraction path.
 12. **Responsive layouts under sm:** — every list page (bills, vendors, aging, vendor detail) renders a real card layout on phones rather than a horizontally-scrolled desktop table. Bill detail's hero, lifecycle stepper, and payment table reflow; the aging callout's actions become a 2-col button grid.
+
+## Line-item splits & allocation templates
+
+Splits and reusable allocation templates shipped as a follow-up PR (Ramp feature #2). This is the one area where the implementation deliberately diverges from the source doc, so the reasoning is worth recording.
+
+**What shipped**
+
+- **Multi-dimension splits** — each split carries a required `category` plus optional `department`, `glAccount`, and `location`. The dimension lists are hardcoded (same posture as the category list) pending a real chart of accounts.
+- **Allocation templates** — named, reusable split configs. Create/apply from a bill, manage at `/settings/allocation-templates`, or bulk-load via CSV (one row per split line, rows grouped by `template_name`). Limits mirror Ramp: **150 splits/line, 200 templates/org**.
+- **Role seam** — Ramp restricts template management to Admin/AP roles. There's no auth yet, so `canManageTemplates()` returns `true` for the demo org and gates the save/manage UI plus every template mutation. When auth lands, only that function's body changes.
+
+**Why it's built this way**
+
+- **Kept the basis-points allocation model, not Ramp's "replace one line with N lines."** Ramp's doc says applying a split *replaces* the original line with new individual lines. We instead keep one line item carrying a `splits` jsonb array of `percentageBps`, reusing the existing `allocateCents()` math (floor each split, drop the rounding remainder on the largest so cents always reconcile). It's functionally identical for "where the money went," but it honors the money-as-integer-cents rule, avoids a parent/child line-grouping model, and reuses already-tested code. A split is **accounting allocation metadata** — it never changes the bill total or the payment amount.
+- **One shared validation schema.** `lineItemSplitSchema` (in `lib/categories.ts`) is the single source of truth for a split's shape and validity — category/dimension values must exist in the lists, bps in range. Both the bill-editor save path (`updateBill`) and the template actions import it, so they can't drift.
+- **The jsonb shape change needed no migration; only the new table did.** Widening a split from one dimension to four is an app-enforced jsonb change, so the lone DB migration is the additive `allocation_templates` table.
+- **Concurrency-safe caps.** The 200-template cap is enforced under a per-org `pg_advisory_xact_lock` inside the create/import transactions, so a naive count-then-insert can't race past the limit; the unique `(org_id, lower(name))` index backstops name dedup.
+- **Extraction left untouched.** Splits are user-entered, never model-extracted, so the AI tool-use contract didn't change.
+
+The honest trade-off: a reviewer comparing against Ramp's doc will see we represent a split as percentages on one line rather than as N expanded lines. We chose fidelity to the existing data model and money rules over literal fidelity to the doc's wording.
 
 ## What I left out and why
 
@@ -153,7 +174,7 @@ Each row is **chose / considered / why** so the trade-offs are explicit.
 | **Icons** | lucide-react | Heroicons, Phosphor | 1500+ icons, consistent stroke weight, tree-shakeable. |
 | **Migrations** | `drizzle-kit generate` + tsx migrator script | `drizzle-kit push` | Push needs a TTY (broken in non-interactive shells / CI), so explicit migration files committed to the repo it is. Bonus: I can read the SQL before applying. |
 | **Forms** | React local state + server actions | react-hook-form, Formik, TanStack Form | The bill editor has maybe 15 fields. A form library would add 8KB and a layer of indirection for no win. |
-| **Tests** | Vitest (pure helpers) + HTTP smoke script | Playwright e2e, DB integration tests | Vitest covers the deterministic logic (money math, aging buckets, split allocation, percentage round-tripping — 37 tests). The smoke script validates that every route returns 200 + expected content against any deploy. **Not** covered: server-action integration tests against a real DB (the most valuable remaining tests; would need a throwaway Postgres + 2-3h of infra). |
+| **Tests** | Vitest (pure helpers) + HTTP smoke script | Playwright e2e, DB integration tests | Vitest covers the deterministic logic (money math, aging buckets, multi-dimension split allocation + validation, CSV template grouping, percentage round-tripping — 78 tests). The smoke script validates that every route returns 200 + expected content against any deploy. **Not** covered: server-action integration tests against a real DB (the most valuable remaining tests; would need a throwaway Postgres + 2-3h of infra). |
 
 ## Patterns
 
@@ -205,11 +226,18 @@ src/
 │   ├── aging/
 │   │   ├── page.tsx            ← AP aging report bucketed by days overdue
 │   │   └── loading.tsx
-│   └── vendors/
-│       ├── page.tsx            ← list with monogram avatars, search, method pills
-│       ├── actions.ts          ← createVendor server action
+│   ├── vendors/
+│   │   ├── page.tsx            ← list with monogram avatars, search, method pills
+│   │   ├── actions.ts          ← createVendor server action
+│   │   ├── loading.tsx
+│   │   └── [id]/page.tsx       ← drill-in: stats + scoped bills table
+│   └── settings/
+│       ├── page.tsx            ← settings hub
 │       ├── loading.tsx
-│       └── [id]/page.tsx       ← drill-in: stats + scoped bills table
+│       ├── actions.ts          ← allocation-template actions: create / delete / importFromCsv
+│       └── allocation-templates/
+│           ├── page.tsx        ← templates list (server) + loading.tsx
+│           └── import/page.tsx ← CSV bulk-import page
 ├── components/                 ← all client components, lowercase-with-dashes, flat
 │   │  (shared primitives)
 │   ├── app-header.tsx          ← sticky nav: Bills · Aging · Vendors
@@ -242,18 +270,25 @@ src/
 │   │  (vendors)
 │   ├── vendors-list.tsx        ← search + dialog launcher; desktop table + mobile cards
 │   │  (dialogs)
-│   ├── line-item-splits-dialog.tsx ← per-line allocation across categories (must sum to 100%)
+│   ├── split-rows-editor.tsx   ← shared multi-dimension split row editor (presentational; reused by both dialogs)
+│   ├── line-item-splits-dialog.tsx ← per-line allocation: apply-template picker + save-for-future (must sum to 100%)
+│   ├── new-allocation-template-dialog.tsx ← modal: name + splits (reuses split-rows-editor)
+│   ├── allocation-templates-list.tsx ← Settings list: search, delete, dialog launcher
+│   ├── allocation-template-csv-importer.tsx ← drag-drop CSV, grouped preview, bulk import
 │   ├── new-vendor-dialog.tsx   ← modal: name + email + default payment method
 │   ├── repeat-bill-dialog.tsx  ← modal: frequency + count, generates child bills
 │   └── schedule-payment-dialog.tsx ← modal: date, method, amount
 ├── db/
-│   ├── schema.ts               ← Drizzle schema: 6 tables, enums, indexes
+│   ├── schema.ts               ← Drizzle schema: 7 tables, enums, indexes
 │   ├── index.ts                ← single Drizzle client (HMR-safe)
 │   └── queries.ts              ← shared read queries: listBills, getBillById,
-│                                  getBillSummary, listVendors, getVendorById
+│                                  getBillSummary, listVendors, getVendorById,
+│                                  listAllocationTemplates
 └── lib/
-    ├── categories.ts           ← hardcoded GL category list + split helpers (alloc, fmt)
-    ├── categories.test.ts      ← Vitest unit tests for split allocation
+    ├── categories.ts           ← category + dimension lists, split helpers (alloc, fmt), lineItemSplitSchema
+    ├── categories.test.ts      ← Vitest unit tests for split allocation + validation
+    ├── allocation-template-csv.ts ← pure CSV→templates grouper/validator (+ .test.ts)
+    ├── permissions.ts          ← canManageTemplates() role seam (RBAC lands here with auth)
     ├── extract.ts              ← Anthropic SDK call + Zod validation
     ├── storage.ts              ← Vercel Blob OR local fs fallback
     ├── aging-csv.ts            ← AP aging → CSV data: URL builder
@@ -264,7 +299,7 @@ src/
 scripts/
 ├── load-env.ts                 ← loads .env.local for standalone scripts
 ├── migrate.ts                  ← drizzle-orm migrator (avoids drizzle-kit's TTY)
-├── seed.ts                     ← 9 demo bills across all statuses
+├── seed.ts                     ← demo bills across all statuses + 3 allocation templates + sample line-item splits
 ├── generate-samples.ts         ← writes 3 PDF invoices into ./samples/
 ├── smoke.ts                    ← HTTP smoke test: hits each route, asserts 200 + content
 ├── test-extract.ts             ← npm run test:extract -- <file>
@@ -278,21 +313,23 @@ samples/                        ← PDFs for the upload demo
 
 ```
 organizations             ← single demo org
-└── vendors               ← unique (org_id, lower(name)) for dedup
+├── vendors               ← unique (org_id, lower(name)) for dedup
+├── allocation_templates  ← reusable split configs; unique (org_id, lower(name)), ≤200/org
 └── bills                 ← status FSM: draft → needs_review → approved → scheduled → paid
-    ├── bill_line_items   ← qty × unit_price = amount, all in cents
+    ├── bill_line_items   ← qty × unit_price = amount, all in cents; optional splits jsonb
     ├── payments          ← scheduled_for, paid_at, method, amount, status
     └── bill_events       ← append-only audit log: created/extracted/edited/approved/scheduled/paid
 ```
 
-Six tables. Six. Money is integers. Dates are dates. Statuses are Postgres enums. Indexes on `(org_id, status)` and `due_date` for the queries that actually run on the bills page.
+Seven tables. Money is integers. Dates are dates. Statuses are Postgres enums. Indexes on `(org_id, status)` and `due_date` for the queries that actually run on the bills page, plus unique `(org_id, lower(name))` on both vendors and allocation templates.
 
 ### Why each table
 
 - **`organizations`** — pure FK target. There's a single seeded org. Every other table has `org_id` so adding multi-tenancy is a `WHERE org_id = ...` filter, not a schema migration.
 - **`vendors`** — separate from bills so dedup works (one Acme, many bills). Unique index on `(org_id, lower(name))` enforces case-insensitive uniqueness.
 - **`bills`** — the spine. Stores extracted fields (`invoice_number`, dates, money), denormalized status, `extracted_json` (the raw model response) so we never lose information during the parse, and an optional `parent_bill_id` self-FK pointing at the template a recurring bill was generated from (NULL for non-recurring or for the template itself).
-- **`bill_line_items`** — `qty × unit_price = amount_cents`, all integers. Soft-deleted via re-insert on edit (the editor wipes + re-inserts inside one transaction, simpler than diffing). Each line carries an optional `splits` jsonb array (`[{category, percentageBps}]`) for cross-category allocation; sum-to-100% is enforced in the action layer.
+- **`bill_line_items`** — `qty × unit_price = amount_cents`, all integers. Soft-deleted via re-insert on edit (the editor wipes + re-inserts inside one transaction, simpler than diffing). Each line carries an optional `splits` jsonb array (`[{category, department?, glAccount?, location?, percentageBps}]`) for multi-dimension allocation; the ≤150 count and sum-to-100% are enforced in the action layer via the shared `lineItemSplitSchema`.
+- **`allocation_templates`** — named, reusable split configs (a `splits` jsonb mirroring a line item's). Org-scoped with a unique `(org_id, lower(name))` index; count capped at 200/org under an advisory lock. Decoupled from bills so a template outlives any single line item, and carries no event log (like `vendors`).
 - **`payments`** — 1:N with bills today, but the schema supports split/partial payments (just create more rows). `paid_at` is nullable; non-null means it's actually paid.
 - **`bill_events`** — append-only. One row per state transition with a `payload` jsonb for context (approver email, payment id, model confidence). Powers the timeline UI and the audit story without a separate event-sourcing library.
 
@@ -424,7 +461,7 @@ In rough order of impact:
 
 1. **Real approval rules** — thresholds (amounts ≥ $X require approver Y), routing by category, multi-step approvals.
 2. **AP email forwarding** — Postmark inbound webhook → same upload pipeline. 2 hours.
-3. **Allocation templates** — save common splits (e.g. "Standard SaaS: 70% R&D, 30% G&A") and apply with one click.
+3. **Allocation export to the ledger** — splits + reusable templates [ship today](#line-item-splits--allocation-templates); the next step is pushing those allocations into QBO/Xero/Netsuite so the GL coding flows through to the books instead of living in the app (pairs with #6).
 4. **Recurring bills v2** — today the user clicks "Repeat" and we eagerly clone N copies. v2 should be a real schedule (cron worker creates the next instance N days before due) and a `/recurring` page to manage active series.
 5. **Vendor pages v2** — the drill-in (`/vendors/[id]`) ships today with bills, totals, and contact display. Still missing: edit-in-place for email/default method, lifetime payment history (currently inferred from bill rows), and 1099 metadata (TIN, W-9 file).
 6. **Chart of accounts + accounting sync** — replace the hardcoded category list with a per-org CoA, and push categorized bills to QBO/Xero/Netsuite.

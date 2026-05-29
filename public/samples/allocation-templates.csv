@@ -1,0 +1,6 @@
+template_name,category,department,gl_account,location,percentage
+Marketing 60/40,Marketing,Marketing,6200 · Advertising,HQ — San Francisco,60
+Marketing 60/40,Sales,Sales,6200 · Advertising,New York,40
+Eng split 3-way,Engineering / R&D,Engineering,6100 · R&D,Remote,34
+Eng split 3-way,Product,Product,6100 · R&D,Austin,33
+Eng split 3-way,Operations,Operations,7000 · Other Expense,London,33

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 /**
  * Hardcoded category list for line-item splits. In a real product these would
  * come from the customer's chart of accounts (synced from QBO/Xero/Netsuite).
@@ -19,15 +21,66 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number];
 
+/**
+ * Additional accounting dimensions a split can carry. Like CATEGORIES, in a
+ * real product these would sync from the customer's chart of accounts; for the
+ * MVP they're hardcoded. An empty string ("") on a split means "unassigned".
+ */
+export const DEPARTMENTS = [
+  "Engineering",
+  "Product",
+  "Sales",
+  "Marketing",
+  "Customer Success",
+  "Finance",
+  "People",
+  "Operations",
+] as const;
+
+export const GL_ACCOUNTS = [
+  "6000 · Software & SaaS",
+  "6100 · R&D",
+  "6200 · Advertising",
+  "6300 · Travel & Entertainment",
+  "6400 · Office & Supplies",
+  "6500 · Professional Services",
+  "6600 · Payroll",
+  "7000 · Other Expense",
+] as const;
+
+export const LOCATIONS = [
+  "HQ — San Francisco",
+  "New York",
+  "Austin",
+  "London",
+  "Remote",
+] as const;
+
+export type Department = (typeof DEPARTMENTS)[number];
+export type GlAccount = (typeof GL_ACCOUNTS)[number];
+export type Location = (typeof LOCATIONS)[number];
+
+/**
+ * A single allocation slice of a line item. `category` is required; the other
+ * accounting dimensions are optional (empty string / null = unassigned). The
+ * money weight is always basis points — never percent — see `allocateCents`.
+ */
 export type LineItemSplit = {
   category: string;
+  department?: string | null;
+  glAccount?: string | null;
+  location?: string | null;
   percentageBps: number; // 10000 = 100%
 };
 
 export const TOTAL_BPS = 10000;
 
+/** Max slices per line item (and per saved template). Mirrors Ramp's limit. */
+export const MAX_SPLITS = 150;
+
 export function isSplitsValid(splits: LineItemSplit[] | null | undefined): boolean {
   if (!splits || splits.length === 0) return true; // Uncategorized is OK
+  if (splits.length > MAX_SPLITS) return false;
   if (splits.some((s) => !s.category || s.percentageBps <= 0)) return false;
   const sum = splits.reduce((acc, s) => acc + s.percentageBps, 0);
   return sum === TOTAL_BPS;
@@ -41,19 +94,27 @@ export function pctToBps(pct: number): number {
   return Math.round(pct * 100);
 }
 
+/** A split with its money weight resolved to integer cents. */
+export type AllocatedSplit = Omit<LineItemSplit, "percentageBps"> & { cents: number };
+
 /**
  * Allocates a cents amount across splits, rounding down on each split and
  * dropping leftover cents on the largest split (prevents +/- 1¢ drift).
+ * Preserves every accounting dimension on each split (category/department/etc.)
+ * so downstream roll-ups can group by any dimension.
  */
 export function allocateCents(
   totalCents: number,
   splits: LineItemSplit[]
-): Array<{ category: string; cents: number }> {
+): AllocatedSplit[] {
   if (splits.length === 0) return [];
-  const allocated = splits.map((s) => ({
-    category: s.category,
-    cents: Math.floor((totalCents * s.percentageBps) / TOTAL_BPS),
-  }));
+  const allocated = splits.map((s) => {
+    const { percentageBps, ...dimensions } = s;
+    return {
+      ...dimensions,
+      cents: Math.floor((totalCents * percentageBps) / TOTAL_BPS),
+    };
+  });
   const drift = totalCents - allocated.reduce((sum, a) => sum + a.cents, 0);
   if (drift !== 0) {
     let largestIdx = 0;
@@ -72,3 +133,42 @@ export function formatSplitSummary(splits: LineItemSplit[] | null | undefined): 
     .map((s) => `${bpsToPct(s.percentageBps).toFixed(0)}% ${s.category}`)
     .join(" · ");
 }
+
+// ─── Validation (single source of truth, shared across actions) ─────
+
+const inList =
+  (list: readonly string[]) =>
+  (v: string | null | undefined): boolean =>
+    v == null || v === "" || list.includes(v);
+
+/**
+ * Zod schema for one split slice — the single source of truth shared by the
+ * bill editor's `updateBill` action and the allocation-template actions, so the
+ * two can't drift (a future dimension/bound change happens in one place).
+ *
+ * Enforces that `category` is a known category and each optional dimension,
+ * when set, is a value from its list (empty string / null = unassigned). This
+ * matches what the editor's <select>s offer, so any stored value round-trips in
+ * the UI instead of silently rendering as "— Unassigned —".
+ */
+export const lineItemSplitSchema = z.object({
+  category: z
+    .string()
+    .refine((v) => (CATEGORIES as readonly string[]).includes(v), "Unknown category"),
+  department: z
+    .string()
+    .nullable()
+    .optional()
+    .refine(inList(DEPARTMENTS), "Unknown department"),
+  glAccount: z
+    .string()
+    .nullable()
+    .optional()
+    .refine(inList(GL_ACCOUNTS), "Unknown GL account"),
+  location: z
+    .string()
+    .nullable()
+    .optional()
+    .refine(inList(LOCATIONS), "Unknown location"),
+  percentageBps: z.number().int().min(1).max(10000),
+});

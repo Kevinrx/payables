@@ -11,6 +11,10 @@ import {
   index,
   date,
 } from "drizzle-orm/pg-core";
+// Single source of truth for the split shape lives in the lib layer; the jsonb
+// columns below are typed from it. Type-only import (erased at build), so no
+// runtime/drizzle-kit dependency on the lib module.
+import type { LineItemSplit } from "@/lib/categories";
 
 // ─── Enums ──────────────────────────────────────────────────────────
 
@@ -117,14 +121,10 @@ export const bills = pgTable(
   ]
 );
 
-// A single line can be split across multiple GL categories.
+// A single line can be split across multiple accounting dimensions.
 // Stored as jsonb for MVP simplicity; schema enforced in app code.
 // Sum of percentageBps across splits MUST equal 10000 (= 100%).
-export type LineItemSplit = {
-  category: string;
-  percentageBps: number; // basis points: 10000 = 100%
-};
-
+// The LineItemSplit shape is defined in @/lib/categories (imported above).
 export const billLineItems = pgTable("bill_line_items", {
   id: uuid("id").primaryKey().defaultRandom(),
   billId: uuid("bill_id")
@@ -165,6 +165,30 @@ export const billEvents = pgTable("bill_events", {
     .defaultNow(),
 });
 
+// Reusable saved split configurations ("allocation templates"). The splits
+// jsonb mirrors a line item's splits (must sum to 10000 bps). Case-insensitive
+// unique name per org, mirroring the vendors dedup index.
+export const allocationTemplates = pgTable(
+  "allocation_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    splits: jsonb("splits").$type<LineItemSplit[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("allocation_templates_org_name_lower_idx").on(
+      t.orgId,
+      sql`lower(${t.name})`
+    ),
+  ]
+);
+
 // ─── Inferred types ─────────────────────────────────────────────────
 
 export type Organization = typeof organizations.$inferSelect;
@@ -173,6 +197,7 @@ export type Bill = typeof bills.$inferSelect;
 export type BillLineItem = typeof billLineItems.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type BillEventRow = typeof billEvents.$inferSelect;
+export type AllocationTemplate = typeof allocationTemplates.$inferSelect;
 
 export type BillStatus = (typeof billStatus.enumValues)[number];
 export type PaymentMethod = (typeof paymentMethod.enumValues)[number];
