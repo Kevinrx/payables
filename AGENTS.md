@@ -62,6 +62,21 @@ All mutations live in `src/app/<segment>/actions.ts` as `"use server"` functions
 | `repeatBill(billId, freq, count)` | `bills/actions.ts` | any (template stays put) → N child `draft` bills linked via `parent_bill_id`, event payload tag `recurring` | `created` per child |
 | `createVendor(…)` | `vendors/actions.ts` | entry → vendor row, dedup by `lower(name)` | n/a (vendor table has no event log) |
 
+### Payment actions (`payments/actions.ts`)
+
+Payment-centric mutations for the Payments screen. Keyed off `paymentId` (org scoped through the parent bill — `payments` has no `org_id`). Each has a single-payment form and a bulk form taking `paymentIds: string[]` (capped at 200); both share the private `apply*` transition helpers, so single and bulk can't diverge. Bulk forms apply to FSM-eligible rows and **skip** the rest, returning `{ succeeded, skipped }`.
+
+| Action (single / bulk) | Payment precondition → result | Bill effect | Event written |
+|---|---|---|---|
+| `releasePayment` / `releasePayments` | `scheduled` → `processing` | stays `scheduled` | `released` |
+| `cancelPayment` / `cancelPayments` | `scheduled`\|`processing`\|`failed` → `canceled` | `scheduled` → `approved` | `canceled` `{action:'cancel'}` |
+| `unschedulePayment` / `unschedulePayments` | `scheduled` → `canceled` | `scheduled` → `approved` | `canceled` `{action:'unschedule'}` |
+| `editPaymentDate` / `editPaymentDates` | `scheduled` (date change) | stays `scheduled` | `scheduled` `{action:'rescheduled'}` |
+| `retryPayment` / `retryPayments` | `failed` → `scheduled` (re-queued today) | stays `scheduled` | `scheduled` `{action:'retried'}` |
+| `markPaymentPaid` / `markPaymentsPaid` | `scheduled`\|`processing` → `paid` | `scheduled` → `paid` | `paid` |
+
+**Payment FSM:** `payment_status` is `scheduled → processing → paid`, with `failed` (retry/cancel) and `canceled` as off-ramps. `scheduled → approved` is the one **reverse** bill transition in the app (cancel/unschedule return a bill to the active queue). Tab bucketing (Overview / Needs review / Pending / History) is derived by `paymentBucket()` in `src/lib/payments.ts`; `eligibleActions()` there is the single source of truth for which actions a status allows.
+
 ## Client ↔ server interaction pattern
 
 - **No form library.** Local state + server action + `useTransition()`. Pattern:
@@ -77,7 +92,7 @@ All mutations live in `src/app/<segment>/actions.ts` as `"use server"` functions
   The submit button reads `isPending` for its disabled/spinning state. We do **not** use `useFormStatus()` or `<form action={...}>`.
 - **After a mutation succeeds, call `router.refresh()`.** The server action's `revalidatePath()` invalidates the RSC cache; `router.refresh()` triggers the re-render. Both are needed.
 - **No optimistic UI on status transitions.** Approve / Schedule / Mark Paid wait for the server because their visual change requires a round-trip anyway. Optimistic updates are fine on free-form text inputs in the editor.
-- **`?from=vendor:<id>` back-button.** Bill rows linked from a vendor detail page carry `?from=vendor:<id>`; the bill detail page parses it and points Back to the vendor instead of `/bills`. Preserve this when adding new entry points to the bill detail.
+- **`?from=…` back-button.** Bill rows linked from a vendor detail page carry `?from=vendor:<id>` and rows from the Payments screen carry `?from=payments`; the bill detail page (`resolveBackTarget`) parses these and points Back to the vendor / `/payments` instead of `/bills`. Preserve this when adding new entry points to the bill detail.
 
 ## Routes
 
@@ -90,6 +105,7 @@ All under `src/app/`. Pages are server components by default; interactive sub-tr
 | `/bills/new` | — | Upload, sample chips, manual create, CSV entry |
 | `/bills/import` | — | CSV bulk upload |
 | `/bills/[id]` | `loading.tsx` | Detail + editor; renders `<ExtractionPending />` (client) when bill is `draft` with file and no `extracted_json` — that component kicks off `runExtraction` from a `useEffect`, then `router.refresh()`s |
+| `/payments` | `loading.tsx` | Payment-centric list (Ramp-style). Tabs Overview/Needs review/Pending/History (`paymentBucket`), search, sort, per-row + bulk actions, CSV export. Rows link to `/bills/[id]?from=payments` |
 | `/aging` | `loading.tsx` | AP aging report; one SQL query with `SUM(CASE WHEN …)` per bucket |
 | `/vendors` | `loading.tsx` | Vendor list + `+ New vendor` dialog |
 | `/vendors/[id]` | — | Vendor stats + scoped bills (links carry `?from=vendor:<id>`) |

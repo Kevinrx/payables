@@ -90,6 +90,83 @@ export async function getBillSummary(orgId: string) {
   };
 }
 
+// ─── Payments (payment-centric list, mirrors listBills) ─────────────
+
+export type PaymentListRow = Awaited<ReturnType<typeof listPayments>>[number];
+
+export async function listPayments(orgId: string) {
+  // Payments have no org_id of their own — scope through the parent bill.
+  return db
+    .select({
+      id: payments.id,
+      billId: payments.billId,
+      scheduledFor: payments.scheduledFor,
+      paidAt: payments.paidAt,
+      method: payments.method,
+      amountCents: payments.amountCents,
+      status: payments.status,
+      createdAt: payments.createdAt,
+      vendorId: bills.vendorId,
+      vendorName: vendors.name,
+      invoiceNumber: bills.invoiceNumber,
+      billDueDate: bills.dueDate,
+      billStatus: bills.status,
+      currency: bills.currency,
+    })
+    .from(payments)
+    .innerJoin(bills, eq(bills.id, payments.billId))
+    .leftJoin(vendors, eq(vendors.id, bills.vendorId))
+    .where(eq(bills.orgId, orgId))
+    .orderBy(asc(payments.scheduledFor), desc(payments.createdAt));
+}
+
+export async function getPaymentsSummary(orgId: string) {
+  // Bucket aggregates for the Payments screen cards. Mirrors the bucketing
+  // in src/lib/payments.ts (paymentBucket) so the cards agree with the tabs.
+  const [row] = await db.execute<{
+    needs_review_count: string;
+    needs_review_cents: string;
+    pending_count: string;
+    pending_cents: string;
+    paid_count: string;
+    paid_cents: string;
+    outgoing_count: string;
+    outgoing_cents: string;
+  }>(sql`
+    SELECT
+      COUNT(*) FILTER (
+        WHERE p.status = 'failed'
+           OR (p.status = 'scheduled' AND p.scheduled_for < CURRENT_DATE)
+      ) AS needs_review_count,
+      COALESCE(SUM(p.amount_cents) FILTER (
+        WHERE p.status = 'failed'
+           OR (p.status = 'scheduled' AND p.scheduled_for < CURRENT_DATE)
+      ), 0) AS needs_review_cents,
+      COUNT(*) FILTER (
+        WHERE p.status = 'processing'
+           OR (p.status = 'scheduled' AND p.scheduled_for >= CURRENT_DATE)
+      ) AS pending_count,
+      COALESCE(SUM(p.amount_cents) FILTER (
+        WHERE p.status = 'processing'
+           OR (p.status = 'scheduled' AND p.scheduled_for >= CURRENT_DATE)
+      ), 0) AS pending_cents,
+      COUNT(*) FILTER (WHERE p.status = 'paid') AS paid_count,
+      COALESCE(SUM(p.amount_cents) FILTER (WHERE p.status = 'paid'), 0) AS paid_cents,
+      COUNT(*) FILTER (WHERE p.status IN ('scheduled','processing')) AS outgoing_count,
+      COALESCE(SUM(p.amount_cents) FILTER (WHERE p.status IN ('scheduled','processing')), 0) AS outgoing_cents
+    FROM payments p
+    JOIN bills b ON b.id = p.bill_id
+    WHERE b.org_id = ${orgId}
+  `);
+
+  return {
+    needsReview: { count: Number(row.needs_review_count), cents: Number(row.needs_review_cents) },
+    pending:     { count: Number(row.pending_count),      cents: Number(row.pending_cents) },
+    paid:        { count: Number(row.paid_count),         cents: Number(row.paid_cents) },
+    outgoing:    { count: Number(row.outgoing_count),     cents: Number(row.outgoing_cents) },
+  };
+}
+
 export async function getBillById(billId: string, orgId: string) {
   const [bill] = await db
     .select({

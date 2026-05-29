@@ -54,6 +54,13 @@ async function seed() {
     lines: LineItem[];
     paid?: { method: typeof schema.paymentMethod.enumValues[number]; daysAgo: number };
     scheduled?: { method: typeof schema.paymentMethod.enumValues[number]; inDays: number };
+    // Generic payment in a specific lifecycle state, so every Payments tab
+    // (Needs review / Pending / History) has demo content.
+    payment?: {
+      status: "scheduled" | "processing" | "failed" | "canceled";
+      method: typeof schema.paymentMethod.enumValues[number];
+      inDays: number; // scheduledFor relative to today (negative = past)
+    };
   };
 
   const seedBills: SeedBill[] = [
@@ -160,6 +167,47 @@ async function seed() {
         { description: "Coffee service - quarterly", quantity: 1, unitPriceCents: 145000 },
       ],
     },
+    // ── Payments-screen coverage: one bill per non-trivial payment state ──
+    {
+      // Pending → released, funds in motion
+      vendor: "Northwind Logistics",
+      invoiceNumber: "NW-99902",
+      invoiceDate: daysFromNow(-10),
+      dueDate: daysFromNow(12),
+      status: "scheduled",
+      payment: { status: "processing", method: "ach", inDays: 2 },
+      lines: [{ description: "Regional freight - March", quantity: 1, unitPriceCents: 167500 }],
+    },
+    {
+      // Needs review → scheduled but the date already passed (should have released)
+      vendor: "Initech Software",
+      invoiceNumber: "INV-2026-0377",
+      invoiceDate: daysFromNow(-30),
+      dueDate: daysFromNow(-1),
+      status: "scheduled",
+      payment: { status: "scheduled", method: "ach", inDays: -2 },
+      lines: [{ description: "Initech Pro - add-on seats × 5", quantity: 5, unitPriceCents: 18000 }],
+    },
+    {
+      // Needs review → failed payment, awaiting retry
+      vendor: "Globex Office Supplies",
+      invoiceNumber: "GLX-771300",
+      invoiceDate: daysFromNow(-20),
+      dueDate: daysFromNow(5),
+      status: "scheduled",
+      payment: { status: "failed", method: "check", inDays: -1 },
+      lines: [{ description: "Printer toner (bulk)", quantity: 6, unitPriceCents: 8900 }],
+    },
+    {
+      // History → canceled payment; bill returned to the queue (approved)
+      vendor: "Vandelay Industries",
+      invoiceNumber: "V-2026-244",
+      invoiceDate: daysFromNow(-15),
+      dueDate: daysFromNow(20),
+      status: "approved",
+      payment: { status: "canceled", method: "check", inDays: 4 },
+      lines: [{ description: "Customs brokerage fee", quantity: 1, unitPriceCents: 96000 }],
+    },
   ];
 
   for (const b of seedBills) {
@@ -264,6 +312,37 @@ async function seed() {
         event: "paid",
         payload: { paymentId: pay.id, paidAt: paidAt.toISOString() },
       });
+    }
+
+    if (b.payment) {
+      const [pay] = await db
+        .insert(schema.payments)
+        .values({
+          billId: bill.id,
+          scheduledFor: daysFromNow(b.payment.inDays),
+          method: b.payment.method,
+          amountCents: total,
+          status: b.payment.status,
+        })
+        .returning();
+      await db.insert(schema.billEvents).values({
+        billId: bill.id,
+        event: "scheduled",
+        payload: { paymentId: pay.id, method: b.payment.method },
+      });
+      if (b.payment.status === "processing") {
+        await db.insert(schema.billEvents).values({
+          billId: bill.id,
+          event: "released",
+          payload: { paymentId: pay.id },
+        });
+      } else if (b.payment.status === "canceled") {
+        await db.insert(schema.billEvents).values({
+          billId: bill.id,
+          event: "canceled",
+          payload: { paymentId: pay.id, action: "cancel" },
+        });
+      }
     }
   }
 
