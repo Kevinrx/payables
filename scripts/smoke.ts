@@ -19,12 +19,12 @@ const CHECKS: Check[] = [
     name: "root redirects",
     path: "/",
     expectStatus: 200, // Next follows the redirect; we get /bills HTML
-    mustContain: ["Trashlab Payables", "Bills"],
+    mustContain: ["Payables", "Bills"],
   },
   {
     name: "bills list",
     path: "/bills",
-    mustContain: ["Trashlab Payables", "outstanding", "Due in 7 days"],
+    mustContain: ["Payables", "outstanding", "Due in 7 days"],
   },
   {
     name: "aging report",

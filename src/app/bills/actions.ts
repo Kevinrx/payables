@@ -419,7 +419,7 @@ export async function approveBill(billId: string): Promise<Result> {
       await tx.insert(billEvents).values({
         billId,
         event: "approved",
-        payload: { approver: "demo@trashlab.com" },
+        payload: { approver: "demo@example.com" },
       });
     });
 

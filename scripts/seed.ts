@@ -23,7 +23,7 @@ async function seed() {
   console.log("Inserting organization...");
   const [org] = await db
     .insert(schema.organizations)
-    .values({ name: "Trashlab" })
+    .values({ name: "Demo Company" })
     .returning();
 
   console.log("Inserting vendors...");
@@ -317,7 +317,7 @@ async function seed() {
       await db.insert(schema.billEvents).values({
         billId: bill.id,
         event: "approved",
-        payload: { approver: "demo@trashlab.com" },
+        payload: { approver: "demo@example.com" },
       });
     }
 

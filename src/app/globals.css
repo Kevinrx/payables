@@ -1,5 +1,5 @@
 /* ============================================================
-   Trashlab Payables — Design System
+   Payables — Design System
    Ink-on-Bone palette · Geist + Geist Mono · Vermillion accent
    ============================================================ */
 
@@ -388,7 +388,7 @@ body {
   background-size: 18px 18px;
 }
 
-/* ----- Toasts (sonner) — Trashlab Toast design ----- */
+/* ----- Toasts (sonner) — Payables Toast design ----- */
 /* Soft tinted card · flat icon · uppercase title · muted
    description · progress bar at the bottom that depletes over
    the toast's duration. Type color drives the surface tint,
