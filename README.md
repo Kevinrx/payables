@@ -1,14 +1,14 @@
-# Trashlab Payables
+# Payables
 
-A small, opinionated payables product inspired by [Ramp Bill Pay](https://support.ramp.com/hc/en-us/articles/27579228841875-Managing-bills-and-payments-on-Bill-Pay). Built as a takehome.
-
-🔗 **Live demo:** https://trashlab-payables.vercel.app
+A small, opinionated payables product inspired by [Ramp Bill Pay](https://support.ramp.com/hc/en-us/articles/27579228841875-Managing-bills-and-payments-on-Bill-Pay).
 
 > **The bet:** the spine of any AP product is one loop — *invoice arrives → becomes a bill → gets reviewed and approved → gets paid → shows up in aging*. Everything else (CSV upload, AP email forwarding, recurring bills, line-item splits, multi-approver workflows, GL coding) is a variation on that loop. So I built the spine end-to-end with one real magical feature — AI extraction — and called the rest scope.
 
 ## Try it in 30 seconds
 
-1. Open https://trashlab-payables.vercel.app → click around the seeded bills, try filtering by status
+Run the [setup](#setup) steps below, then:
+
+1. Open `http://localhost:3000` → click around the seeded bills, try filtering by status
 2. Click **New bill** → tap one of the **sample invoice chips** (Acme Cloud / Northwind Logistics / Globex Supplies) for a one-click demo, or drop your own PDF / one from the [`samples/`](./samples) folder
 3. Watch the form populate from Claude vision in ~6 seconds — edit anything, approve, schedule a payment, mark paid
 4. Hit **Import CSV** in the bills header → tap the **8-bill sample** chip (or drop [`samples/bulk-import.csv`](./samples/bulk-import.csv)) to import 8 bills at once
@@ -39,7 +39,7 @@ A small, opinionated payables product inspired by [Ramp Bill Pay](https://suppor
 
 ## Ramp Bill Pay feature coverage
 
-The takehome prompt linked 11 Ramp Bill Pay help-center articles. Here's the explicit scoping decision for each:
+I used 11 Ramp Bill Pay help-center articles as a feature checklist while scoping this project. Here's the explicit scoping decision for each:
 
 | # | Prompt feature | Status | Where |
 |---|---|---|---|
@@ -125,8 +125,8 @@ The interesting choices are mostly about **what got shipped in detail vs. what w
 ### One-shot
 
 ```bash
-git clone https://github.com/Kevinrx/trashlab-payables.git
-cd trashlab-payables
+git clone https://github.com/Kevinrx/payables.git
+cd payables
 cp .env.example .env.local      # then fill in DATABASE_URL and ANTHROPIC_API_KEY
 npm install
 npm run db:generate             # generate Drizzle migration files

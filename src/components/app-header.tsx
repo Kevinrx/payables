@@ -22,8 +22,7 @@ export function AppHeader() {
           >
             <Receipt className="h-3.5 w-3.5" strokeWidth={2} />
           </span>
-          <span className="text-[14.5px] font-semibold tracking-tight">Trashlab</span>
-          <span className="hidden text-[14.5px] text-ink-faint sm:inline">Payables</span>
+          <span className="text-[14.5px] font-semibold tracking-tight">Payables</span>
         </Link>
         <nav className="flex items-center gap-0.5">
           <HeaderLink href="/bills" label="Bills" />
