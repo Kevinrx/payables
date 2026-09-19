@@ -8,6 +8,7 @@ import { getDemoOrgId } from "@/db/queries";
 import { canManageTemplates } from "@/lib/permissions";
 import { isSplitsValid, lineItemSplitSchema, type LineItemSplit } from "@/lib/categories";
 import { groupCsvRowsToTemplates } from "@/lib/allocation-template-csv";
+import { containsProfanity } from "@/lib/content-filter";
 
 const { allocationTemplates } = schema;
 
@@ -48,6 +49,12 @@ export async function createAllocationTemplate(
   // Defense in depth beyond the zod refine (category present, ≤150, sums to 100%).
   if (!isSplitsValid(splits as LineItemSplit[])) {
     return { ok: false, error: "Splits must be valid and sum to 100%" };
+  }
+  if (containsProfanity(name)) {
+    return {
+      ok: false,
+      error: "That template name isn't appropriate for this public demo — please change it.",
+    };
   }
 
   try {
@@ -183,6 +190,11 @@ export async function importAllocationTemplatesFromCsv(
         if (room <= 0) {
           skipped++;
           skippedReasons.push(`"${t.name}": template limit (${MAX_TEMPLATES}) reached`);
+          continue;
+        }
+        if (containsProfanity(t.name)) {
+          skipped++;
+          skippedReasons.push(`"${t.name}": contains language that isn't allowed, skipped`);
           continue;
         }
         accepted.push({ orgId, name: t.name, splits: t.splits });

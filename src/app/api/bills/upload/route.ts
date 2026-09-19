@@ -1,7 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { extname } from "node:path";
 import { db, schema } from "@/db";
 import { getDemoOrgId } from "@/db/queries";
 import { storeFile } from "@/lib/storage";
+import { containsProfanity } from "@/lib/content-filter";
+import { notifyDiscord, billLink } from "@/lib/discord";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -36,6 +39,10 @@ export async function POST(req: Request) {
       );
     }
 
+    const safeFileName = containsProfanity(file.name)
+      ? `invoice${extname(file.name)}`
+      : file.name;
+
     const buffer = Buffer.from(await file.arrayBuffer());
     const { url } = await storeFile(buffer, file.name, file.type);
 
@@ -46,7 +53,7 @@ export async function POST(req: Request) {
         status: "draft",
         source: "upload",
         fileUrl: url,
-        fileName: file.name,
+        fileName: safeFileName,
         fileMime: file.type,
       })
       .returning();
@@ -54,8 +61,10 @@ export async function POST(req: Request) {
     await db.insert(schema.billEvents).values({
       billId: bill.id,
       event: "created",
-      payload: { source: "upload", fileName: file.name, sizeBytes: file.size },
+      payload: { source: "upload", fileName: safeFileName, sizeBytes: file.size },
     });
+
+    after(() => notifyDiscord(`📄 New bill uploaded: **${safeFileName}**${billLink(bill.id)}`));
 
     return NextResponse.json({ billId: bill.id });
   } catch (e) {

@@ -1,12 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { getDemoOrgId } from "@/db/queries";
 import { extractInvoice } from "@/lib/extract";
 import { lineItemSplitSchema } from "@/lib/categories";
+import { containsProfanity, findProfaneField } from "@/lib/content-filter";
+import { notifyDiscord, billLink } from "@/lib/discord";
 
 const { bills, payments, billEvents, vendors, billLineItems } = schema;
 
@@ -37,6 +40,21 @@ export async function importBillsFromCsv(
         error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
       };
     }
+    for (let i = 0; i < parsed.data.rows.length; i++) {
+      const row = parsed.data.rows[i];
+      const profaneField = findProfaneField({
+        "vendor name": row.vendor_name,
+        "invoice number": row.invoice_number,
+        notes: row.notes,
+      });
+      if (profaneField) {
+        return {
+          ok: false,
+          error: `Row ${i + 1}: the ${profaneField} isn't appropriate for this public demo — please edit it and re-import.`,
+        };
+      }
+    }
+
     const orgId = await getDemoOrgId();
 
     // Build a vendor cache so we don't N+1 the lookups.
@@ -102,6 +120,12 @@ export async function importBillsFromCsv(
         created++;
       }
     });
+
+    after(() =>
+      notifyDiscord(
+        `📊 CSV import: **${created}** bill(s) created (**${vendorsCreated}** new vendor(s))`
+      )
+    );
 
     revalidatePath("/bills");
     return { ok: true, data: { created, vendorsCreated } };
@@ -209,6 +233,10 @@ export async function repeatBill(
       }
     });
 
+    after(() =>
+      notifyDiscord(`🔁 Bill repeated into **${created}** new draft(s)${billLink(billId)}`)
+    );
+
     revalidatePath(`/bills/${billId}`);
     revalidatePath("/bills");
     return { ok: true, data: { created } };
@@ -231,6 +259,7 @@ export async function createManualBill(): Promise<Result<{ billId: string }>> {
       event: "created",
       payload: { source: "manual" },
     });
+    after(() => notifyDiscord(`📝 New manual bill created${billLink(bill.id)}`));
     revalidatePath("/bills");
     return { ok: true, data: { billId: bill.id } };
   } catch (e) {
@@ -290,17 +319,27 @@ export async function runExtraction(
       return { ok: false, error: msg };
     }
 
+    // Redact anything the model pulled off the document that fails the
+    // public-demo filter — this bill's extraction shouldn't hard-fail over
+    // it, it should just land with that field missing, same as any other
+    // partial extraction.
+    const vendorName = containsProfanity(extracted.vendor_name) ? null : extracted.vendor_name;
+    const invoiceNumber = containsProfanity(extracted.invoice_number)
+      ? null
+      : extracted.invoice_number;
+    const notes = containsProfanity(extracted.notes) ? null : extracted.notes;
+    const lineItems = extracted.line_items.map((li) =>
+      containsProfanity(li.description) ? { ...li, description: "Line item" } : li
+    );
+
     // Resolve vendor: dedup by case-insensitive name.
     let vendorId: string | null = null;
-    if (extracted.vendor_name) {
+    if (vendorName) {
       const [existing] = await db
         .select()
         .from(vendors)
         .where(
-          and(
-            eq(vendors.orgId, orgId),
-            sql`lower(${vendors.name}) = lower(${extracted.vendor_name})`
-          )
+          and(eq(vendors.orgId, orgId), sql`lower(${vendors.name}) = lower(${vendorName})`)
         )
         .limit(1);
       if (existing) {
@@ -308,7 +347,7 @@ export async function runExtraction(
       } else {
         const [created] = await db
           .insert(vendors)
-          .values({ orgId, name: extracted.vendor_name })
+          .values({ orgId, name: vendorName })
           .returning();
         vendorId = created.id;
       }
@@ -323,24 +362,26 @@ export async function runExtraction(
         .update(bills)
         .set({
           vendorId,
-          invoiceNumber: extracted.invoice_number,
+          invoiceNumber,
           invoiceDate: extracted.invoice_date,
           dueDate: extracted.due_date,
           currency: extracted.currency || "USD",
           subtotalCents,
           taxCents,
           totalCents,
-          notes: extracted.notes,
+          notes,
           status: "needs_review",
+          // Preserved verbatim (raw model response) even when fields above
+          // are redacted — see AGENTS.md: never blank extracted_json.
           extractedJson: extracted as unknown as Record<string, unknown>,
           updatedAt: new Date(),
         })
         .where(eq(bills.id, billId));
 
       await tx.delete(billLineItems).where(eq(billLineItems.billId, billId));
-      if (extracted.line_items.length > 0) {
+      if (lineItems.length > 0) {
         await tx.insert(billLineItems).values(
-          extracted.line_items.map((li, i) => ({
+          lineItems.map((li, i) => ({
             billId,
             description: li.description,
             quantity: li.quantity != null ? Math.round(li.quantity) : null,
@@ -356,8 +397,8 @@ export async function runExtraction(
         event: "extracted",
         payload: {
           ok: true,
-          vendor: extracted.vendor_name,
-          lineCount: extracted.line_items.length,
+          vendor: vendorName,
+          lineCount: lineItems.length,
         },
       });
     });
@@ -367,11 +408,11 @@ export async function runExtraction(
     // Subtotal/tax/notes are deliberately excluded — they're optional.
     const missingFields: string[] = [];
     if (!vendorId) missingFields.push("vendor");
-    if (!extracted.invoice_number) missingFields.push("invoice number");
+    if (!invoiceNumber) missingFields.push("invoice number");
     if (!extracted.invoice_date) missingFields.push("invoice date");
     if (!extracted.due_date) missingFields.push("due date");
     if (!totalCents) missingFields.push("total");
-    if (extracted.line_items.length === 0) missingFields.push("line items");
+    if (lineItems.length === 0) missingFields.push("line items");
 
     revalidatePath(`/bills/${billId}`);
     revalidatePath("/bills");
@@ -575,6 +616,24 @@ export async function updateBill(
     if (!bill) return { ok: false, error: "Bill not found" };
     if (bill.status !== "draft" && bill.status !== "needs_review") {
       return { ok: false, error: `Cannot edit a bill in status ${bill.status}` };
+    }
+
+    const profaneField = findProfaneField({
+      "vendor name": data.vendorName,
+      "invoice number": data.invoiceNumber,
+      notes: data.notes,
+    });
+    if (profaneField) {
+      return {
+        ok: false,
+        error: `The ${profaneField} you entered isn't appropriate for this public demo — please change it.`,
+      };
+    }
+    if (data.lineItems.some((li) => containsProfanity(li.description))) {
+      return {
+        ok: false,
+        error: "One of the line item descriptions isn't appropriate for this public demo — please change it.",
+      };
     }
 
     let resolvedVendorId = data.vendorId;
