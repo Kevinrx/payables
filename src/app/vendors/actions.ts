@@ -1,10 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { getDemoOrgId } from "@/db/queries";
+import { findProfaneField } from "@/lib/content-filter";
+import { notifyDiscord, vendorLink } from "@/lib/discord";
 
 const { vendors } = schema;
 
@@ -28,6 +31,14 @@ export async function createVendor(
   }
   const { name, email, defaultPaymentMethod } = parsed.data;
 
+  const profaneField = findProfaneField({ name, email: email || null });
+  if (profaneField) {
+    return {
+      ok: false,
+      error: `The ${profaneField} isn't appropriate for this public demo — please change it.`,
+    };
+  }
+
   try {
     const orgId = await getDemoOrgId();
 
@@ -49,6 +60,8 @@ export async function createVendor(
         defaultPaymentMethod,
       })
       .returning({ id: vendors.id });
+
+    after(() => notifyDiscord(`🏢 New vendor created: **${name}**${vendorLink(created.id)}`));
 
     revalidatePath("/vendors");
     return { ok: true, data: { vendorId: created.id } };

@@ -206,6 +206,7 @@ After schema changes: `npm run db:generate`, commit the new `drizzle/<timestamp>
 | `DATABASE_URL` | dev, build, CI | Any Postgres; tested with Neon. CI uses a placeholder string. |
 | `ANTHROPIC_API_KEY` | dev runtime, `test:extract`, prod | Build accepts a placeholder for type-checking. |
 | `BLOB_READ_WRITE_TOKEN` | prod uploads on Vercel | Without it, `storeFile` throws on Vercel; local dev writes to `public/uploads/`. |
+| `DISCORD_WEBHOOK_URL` | optional | Discord webhook for new bill/vendor activity alerts (`src/lib/discord.ts`); unset = notifications silently skipped. |
 
 CI runs lint + test + build on Node 22 with placeholders for the API-dependent vars — no real Anthropic calls during CI.
 
